@@ -1,10 +1,17 @@
 from datetime import datetime
+import enum
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, create_engine, Enum
 from sqlalchemy.orm import relationship, sessionmaker, declarative_base
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 Base = declarative_base()
+
+
+class TaskStatus(enum.Enum):
+    """Статусы задач"""
+    OPEN = "open"
+    COMPLETED = "completed"
 
 
 class Task(Base):
@@ -14,6 +21,7 @@ class Task(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    status = Column(Enum(TaskStatus), default=TaskStatus.OPEN, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

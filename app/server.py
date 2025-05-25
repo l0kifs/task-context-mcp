@@ -34,6 +34,19 @@ class DeleteTaskRequest(BaseModel):
     task_id: int = Field(..., description="ID задачи для удаления")
 
 
+class UpdateTaskStatusRequest(BaseModel):
+    task_id: int = Field(..., description="ID задачи")
+    status: str = Field(..., description="Новый статус задачи", pattern="^(open|completed)$")
+
+
+class ListTasksRequest(BaseModel):
+    status_filter: Optional[str] = Field(None, description="Фильтр по статусу", pattern="^(open|completed)$")
+    page: int = Field(1, description="Номер страницы", ge=1)
+    page_size: int = Field(10, description="Размер страницы", ge=1, le=100)
+    sort_by: str = Field("updated_at", description="Поле для сортировки", pattern="^(created_at|updated_at|title)$")
+    sort_order: str = Field("desc", description="Порядок сортировки", pattern="^(asc|desc)$")
+
+
 # Инициализация MCP сервера
 mcp = FastMCP("Task Context Server")
 
@@ -189,25 +202,43 @@ async def get_task_context(request: GetTaskContextRequest) -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def list_tasks() -> Dict[str, Any]:
+async def list_tasks(request: Optional[ListTasksRequest] = None) -> Dict[str, Any]:
     """
-    Возвращает список всех задач пользователя.
+    Возвращает список задач пользователя с фильтрацией и пагинацией.
     
     Args:
-        Нет параметров
+        request (ListTasksRequest, optional): Параметры запроса
+            - status_filter (str, optional): Фильтр по статусу
+              Возможные значения: "open", "completed", None (все задачи)
+              Примеры: "open" - только открытые, "completed" - только завершенные
+            - page (int): Номер страницы (начиная с 1). По умолчанию: 1
+              Примеры: 1, 2, 3
+            - page_size (int): Количество задач на странице (1-100). По умолчанию: 10
+              Примеры: 5, 10, 20, 50
+            - sort_by (str): Поле для сортировки. По умолчанию: "updated_at"
+              Возможные значения: "created_at", "updated_at", "title"
+            - sort_order (str): Порядок сортировки. По умолчанию: "desc"
+              Возможные значения: "asc" (по возрастанию), "desc" (по убыванию)
     
     Returns:
         Dict[str, Any]: Результат операции
             При success=True:
             - success (bool): True если список получен успешно
-            - tasks (List[Dict]): Список задач, отсортированный по времени обновления (новые первые)
+            - tasks (List[Dict]): Список задач согласно фильтрам и сортировке
                 Каждая задача содержит:
                 - id (int): Уникальный идентификатор задачи
                 - title (str): Название задачи
                 - description (str): Описание задачи
+                - status (str): Статус задачи ("open" или "completed")
                 - created_at (str): Время создания в ISO формате
                 - updated_at (str): Время последнего обновления в ISO формате
-            - total_count (int): Общее количество задач
+            - pagination (Dict): Метаданные пагинации
+                - page (int): Текущая страница
+                - page_size (int): Размер страницы
+                - total_count (int): Общее количество задач (с учетом фильтра)
+                - total_pages (int): Общее количество страниц
+                - has_next (bool): Есть ли следующая страница
+                - has_prev (bool): Есть ли предыдущая страница
             При success=False:
             - success (bool): False при ошибке
             - error (str): Описание ошибки
@@ -216,17 +247,72 @@ async def list_tasks() -> Dict[str, Any]:
         return {"error": "Database not initialized"}
     
     try:
-        tasks = await task_service.list_tasks()
+        # Устанавливаем значения по умолчанию, если request не передан
+        if request is None:
+            request = ListTasksRequest()
+        
+        result = await task_service.list_tasks(
+            status_filter=request.status_filter,
+            page=request.page,
+            page_size=request.page_size,
+            sort_by=request.sort_by,
+            sort_order=request.sort_order
+        )
         
         return {
             "success": True,
-            "tasks": tasks,
-            "total_count": len(tasks)
+            **result  # Распаковываем tasks и pagination
         }
     except Exception as e:
         return {
             "success": False,
             "error": f"Ошибка при получении списка задач: {str(e)}"
+        }
+
+
+@mcp.tool()
+async def update_task_status(request: UpdateTaskStatusRequest) -> Dict[str, Any]:
+    """
+    Обновляет статус задачи (открыта/завершена).
+    
+    Args:
+        request (UpdateTaskStatusRequest): Запрос на обновление статуса
+            - task_id (int): Уникальный идентификатор задачи. Должен существовать в БД.
+              Примеры: 1, 42, 123
+            - status (str): Новый статус задачи. Обязательное поле.
+              Возможные значения: "open" (открыта), "completed" (завершена)
+              Примеры: "completed" - для завершения задачи, "open" - для переоткрытия
+    
+    Returns:
+        Dict[str, Any]: Результат операции
+            При success=True:
+            - success (bool): True если статус обновлен успешно
+            - message (str): Подтверждение обновления с указанием нового статуса
+            При success=False:
+            - success (bool): False при ошибке
+            - error (str): Описание ошибки (например, "Задача с ID X не найдена")
+    """
+    if not task_service:
+        return {"error": "Database not initialized"}
+    
+    try:
+        success = await task_service.update_task_status(request.task_id, request.status)
+        
+        if success:
+            status_text = "завершена" if request.status == "completed" else "открыта"
+            return {
+                "success": True,
+                "message": f"Статус задачи {request.task_id} изменен на '{status_text}'"
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Задача с ID {request.task_id} не найдена"
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Ошибка при обновлении статуса: {str(e)}"
         }
 
 
@@ -364,13 +450,34 @@ async def get_agent_workflow_rules() -> str:
 - Оценки общей загрузки
 - Планирования приоритетов
 
+**Параметры фильтрации:**
+- `status_filter`: "open" (только активные), "completed" (только завершенные), null (все)
+- `page`, `page_size`: для пагинации больших списков
+- `sort_by`: "updated_at" (по обновлению), "created_at" (по созданию), "title" (по названию)
+- `sort_order`: "desc" (новые первые), "asc" (старые первые)
+
+**Рекомендации:**
+- По умолчанию показывай только открытые задачи
+- Используй пагинацию при большом количестве задач
+- Сортируй по времени обновления для актуальности
+
+### `update_task_status` - Изменение статуса задачи
+**Используй когда:**
+- Задача завершена полностью (status="completed")
+- Нужно переоткрыть завершенную задачу (status="open")
+- Пользователь явно просит изменить статус
+
+**Статусы:**
+- "open" - задача активна, работа продолжается
+- "completed" - задача завершена, цель достигнута
+
 ### `delete_task` - Удаление задач
 **Используй только когда:**
 - Пользователь явно просит удалить задачу
 - Задача отменена или больше не актуальна
 - Задача была создана по ошибке
 
-**ВНИМАНИЕ:** Операция необратима!
+**ВНИМАНИЕ:** Операция необратима! Рекомендуется использовать `update_task_status` с "completed" вместо удаления.
 
 ## Стратегии работы
 
