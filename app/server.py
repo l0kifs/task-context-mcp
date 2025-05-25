@@ -598,16 +598,12 @@ async def get_compression_rules() -> str:
 
 def main():
     """Основная функция для запуска сервера"""
-    print("Запуск Task Context MCP Server...")
     
     async def setup_and_run():
         try:
             # Инициализируем базу данных
             await initialize_database()
-            print("База данных инициализирована")
-            print("MCP сервер готов к работе")
         except Exception as e:
-            print(f"Ошибка при инициализации: {e}")
             raise
     
     # Инициализируем базу данных при старте
