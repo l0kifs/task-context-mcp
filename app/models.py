@@ -3,7 +3,6 @@ import enum
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, create_engine, Enum
 from sqlalchemy.orm import relationship, sessionmaker, declarative_base
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 Base = declarative_base()
 
@@ -52,20 +51,15 @@ class TaskSummary(Base):
 class DatabaseManager:
     """Менеджер для работы с базой данных"""
     
-    def __init__(self, database_url: str = "sqlite+aiosqlite:///./tasks.db"):
+    def __init__(self, database_url: str = "sqlite:///./tasks.db"):
         self.database_url = database_url
-        self.engine = create_async_engine(database_url, echo=False)
-        self.async_session = async_sessionmaker(
-            bind=self.engine, 
-            class_=AsyncSession, 
-            expire_on_commit=False
-        )
+        self.engine = create_engine(database_url, echo=False)
+        self.session_factory = sessionmaker(bind=self.engine)
     
-    async def create_tables(self):
+    def create_tables(self):
         """Создает таблицы в базе данных"""
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        Base.metadata.create_all(self.engine)
     
-    def get_session(self) -> AsyncSession:
-        """Возвращает асинхронную сессию"""
-        return self.async_session() 
+    def get_session(self):
+        """Возвращает синхронную сессию"""
+        return self.session_factory() 

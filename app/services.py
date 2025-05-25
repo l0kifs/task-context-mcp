@@ -17,21 +17,19 @@ class TaskService:
     def __init__(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
     
-    async def create_task(self, title: str, description: Optional[str] = None) -> int:
+    def create_task(self, title: str, description: Optional[str] = None) -> int:
         """Создает новую задачу и возвращает её ID"""
-        async with self.db_manager.get_session() as session:
+        with self.db_manager.get_session() as session:
             task = Task(title=title, description=description)
             session.add(task)
-            await session.commit()
-            await session.refresh(task)
+            session.commit()
+            session.refresh(task)
             return task.id
     
-    async def get_task(self, task_id: int) -> Optional[Dict[str, Any]]:
+    def get_task(self, task_id: int) -> Optional[Dict[str, Any]]:
         """Получает задачу по ID с её summary"""
-        async with self.db_manager.get_session() as session:
-            stmt = select(Task).options(selectinload(Task.summaries)).where(Task.id == task_id)
-            result = await session.execute(stmt)
-            task = result.scalar_one_or_none()
+        with self.db_manager.get_session() as session:
+            task = session.query(Task).options(selectinload(Task.summaries)).filter(Task.id == task_id).first()
             
             if not task:
                 return None
@@ -53,7 +51,7 @@ class TaskService:
                 ]
             }
     
-    async def list_tasks(
+    def list_tasks(
         self, 
         status_filter: Optional[str] = None,
         page: int = 1,
@@ -74,27 +72,19 @@ class TaskService:
         Returns:
             Dict: Список задач с метаданными пагинации
         """
-        async with self.db_manager.get_session() as session:
+        with self.db_manager.get_session() as session:
             # Базовый запрос
-            query = select(Task)
+            query = session.query(Task)
             
             # Фильтрация по статусу
             if status_filter:
                 if status_filter == "open":
-                    query = query.where(Task.status == TaskStatus.OPEN)
+                    query = query.filter(Task.status == TaskStatus.OPEN)
                 elif status_filter == "completed":
-                    query = query.where(Task.status == TaskStatus.COMPLETED)
+                    query = query.filter(Task.status == TaskStatus.COMPLETED)
             
             # Подсчет общего количества
-            count_query = select(func.count(Task.id))
-            if status_filter:
-                if status_filter == "open":
-                    count_query = count_query.where(Task.status == TaskStatus.OPEN)
-                elif status_filter == "completed":
-                    count_query = count_query.where(Task.status == TaskStatus.COMPLETED)
-            
-            total_count_result = await session.execute(count_query)
-            total_count = total_count_result.scalar()
+            total_count = query.count()
             
             # Сортировка
             sort_column = getattr(Task, sort_by, Task.updated_at)
@@ -105,11 +95,7 @@ class TaskService:
             
             # Пагинация
             offset = (page - 1) * page_size
-            query = query.offset(offset).limit(page_size)
-            
-            # Выполнение запроса
-            result = await session.execute(query)
-            tasks = result.scalars().all()
+            tasks = query.offset(offset).limit(page_size).all()
             
             # Подсчет метаданных пагинации
             total_pages = (total_count + page_size - 1) // page_size
@@ -138,24 +124,20 @@ class TaskService:
                 }
             }
     
-    async def save_summary(self, task_id: int, step_number: int, summary: str) -> bool:
+    def save_summary(self, task_id: int, step_number: int, summary: str) -> bool:
         """Сохраняет summary для шага задачи"""
-        async with self.db_manager.get_session() as session:
+        with self.db_manager.get_session() as session:
             # Проверяем, существует ли задача
-            task_stmt = select(Task).where(Task.id == task_id)
-            task_result = await session.execute(task_stmt)
-            task = task_result.scalar_one_or_none()
+            task = session.query(Task).filter(Task.id == task_id).first()
             
             if not task:
                 return False
             
             # Проверяем, есть ли уже summary для этого шага
-            summary_stmt = select(TaskSummary).where(
+            existing_summary = session.query(TaskSummary).filter(
                 TaskSummary.task_id == task_id,
                 TaskSummary.step_number == step_number
-            )
-            summary_result = await session.execute(summary_stmt)
-            existing_summary = summary_result.scalar_one_or_none()
+            ).first()
             
             if existing_summary:
                 # Обновляем существующий summary
@@ -172,12 +154,12 @@ class TaskService:
             # Обновляем время изменения задачи
             task.updated_at = task.updated_at  # Триггер onupdate
             
-            await session.commit()
+            session.commit()
             return True
     
-    async def get_task_context(self, task_id: int) -> Optional[Dict[str, Any]]:
+    def get_task_context(self, task_id: int) -> Optional[Dict[str, Any]]:
         """Возвращает оптимизированный контекст задачи для восстановления"""
-        task_data = await self.get_task(task_id)
+        task_data = self.get_task(task_id)
         
         if not task_data:
             return None
@@ -199,54 +181,41 @@ class TaskService:
         if not summaries:
             return "Задача только создана, шагов пока нет."
         
+        # Группируем summary по шагам
         context_parts = []
-        for summary_data in summaries:
-            step_num = summary_data["step_number"]
-            summary_text = summary_data["summary"]
-            context_parts.append(f"Шаг {step_num}: {summary_text}")
+        for summary in summaries:
+            step_text = f"Шаг {summary['step_number']}: {summary['summary']}"
+            context_parts.append(step_text)
         
         return "\n".join(context_parts)
     
-    async def update_task_status(self, task_id: int, status: str) -> bool:
-        """
-        Обновляет статус задачи
-        
-        Args:
-            task_id: ID задачи
-            status: Новый статус ("open" или "completed")
-        
-        Returns:
-            bool: True если статус обновлен, False если задача не найдена
-        """
-        async with self.db_manager.get_session() as session:
-            stmt = select(Task).where(Task.id == task_id)
-            result = await session.execute(stmt)
-            task = result.scalar_one_or_none()
+    def update_task_status(self, task_id: int, status: str) -> bool:
+        """Обновляет статус задачи"""
+        if status not in ["open", "completed"]:
+            return False
+            
+        with self.db_manager.get_session() as session:
+            task = session.query(Task).filter(Task.id == task_id).first()
             
             if not task:
                 return False
             
-            # Обновляем статус
             if status == "open":
                 task.status = TaskStatus.OPEN
             elif status == "completed":
                 task.status = TaskStatus.COMPLETED
-            else:
-                return False
             
-            await session.commit()
+            session.commit()
             return True
-
-    async def delete_task(self, task_id: int) -> bool:
+    
+    def delete_task(self, task_id: int) -> bool:
         """Удаляет задачу и все её summary"""
-        async with self.db_manager.get_session() as session:
-            stmt = select(Task).where(Task.id == task_id)
-            result = await session.execute(stmt)
-            task = result.scalar_one_or_none()
+        with self.db_manager.get_session() as session:
+            task = session.query(Task).filter(Task.id == task_id).first()
             
             if not task:
                 return False
             
-            await session.delete(task)
-            await session.commit()
+            session.delete(task)
+            session.commit()
             return True 

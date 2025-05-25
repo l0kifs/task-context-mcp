@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any, Dict, List, Optional
 
 from fastmcp import FastMCP
@@ -55,17 +54,17 @@ db_manager: Optional[DatabaseManager] = None
 task_service: Optional[TaskService] = None
 
 
-async def initialize_database():
+def initialize_database():
     """Инициализация базы данных"""
     global db_manager, task_service
     
     db_manager = DatabaseManager()
-    await db_manager.create_tables()
+    db_manager.create_tables()
     task_service = TaskService(db_manager)
 
 
 @mcp.tool()
-async def create_task(request: CreateTaskRequest) -> Dict[str, Any]:
+def create_task(request: CreateTaskRequest) -> Dict[str, Any]:
     """
     Создает новую задачу и возвращает её ID.
     
@@ -88,7 +87,7 @@ async def create_task(request: CreateTaskRequest) -> Dict[str, Any]:
         return {"error": "Database not initialized"}
     
     try:
-        task_id = await task_service.create_task(
+        task_id = task_service.create_task(
             title=request.title,
             description=request.description
         )
@@ -106,7 +105,7 @@ async def create_task(request: CreateTaskRequest) -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def save_summary(request: SaveSummaryRequest) -> Dict[str, Any]:
+def save_summary(request: SaveSummaryRequest) -> Dict[str, Any]:
     """
     Сохраняет summary для шага задачи.
     
@@ -130,7 +129,7 @@ async def save_summary(request: SaveSummaryRequest) -> Dict[str, Any]:
         return {"error": "Database not initialized"}
     
     try:
-        success = await task_service.save_summary(
+        success = task_service.save_summary(
             task_id=request.task_id,
             step_number=request.step_number,
             summary=request.summary
@@ -154,7 +153,7 @@ async def save_summary(request: SaveSummaryRequest) -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def get_task_context(request: GetTaskContextRequest) -> Dict[str, Any]:
+def get_task_context(request: GetTaskContextRequest) -> Dict[str, Any]:
     """
     Возвращает оптимизированный контекст задачи для восстановления.
     
@@ -182,7 +181,7 @@ async def get_task_context(request: GetTaskContextRequest) -> Dict[str, Any]:
         return {"error": "Database not initialized"}
     
     try:
-        context = await task_service.get_task_context(request.task_id)
+        context = task_service.get_task_context(request.task_id)
         
         if context:
             return {
@@ -202,40 +201,42 @@ async def get_task_context(request: GetTaskContextRequest) -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def list_tasks(request: Optional[ListTasksRequest] = None) -> Dict[str, Any]:
+def list_tasks(request: Optional[ListTasksRequest] = None) -> Dict[str, Any]:
     """
     Возвращает список задач пользователя с фильтрацией и пагинацией.
     
     Args:
-        request (ListTasksRequest, optional): Параметры запроса
-            - status_filter (str, optional): Фильтр по статусу
-              Возможные значения: "open", "completed", None (все задачи)
-              Примеры: "open" - только открытые, "completed" - только завершенные
-            - page (int): Номер страницы (начиная с 1). По умолчанию: 1
-              Примеры: 1, 2, 3
+        request (ListTasksRequest, optional): Параметры запроса. Если None, используются значения по умолчанию.
+            - status_filter (str, optional): Фильтр по статусу задач
+              * "open" - только открытые задачи
+              * "completed" - только завершенные задачи  
+              * None - все задачи
+            - page (int): Номер страницы для пагинации (начиная с 1). По умолчанию: 1
             - page_size (int): Количество задач на странице (1-100). По умолчанию: 10
-              Примеры: 5, 10, 20, 50
             - sort_by (str): Поле для сортировки. По умолчанию: "updated_at"
-              Возможные значения: "created_at", "updated_at", "title"
+              * "created_at" - по времени создания
+              * "updated_at" - по времени последнего обновления
+              * "title" - по названию задачи
             - sort_order (str): Порядок сортировки. По умолчанию: "desc"
-              Возможные значения: "asc" (по возрастанию), "desc" (по убыванию)
+              * "desc" - по убыванию (новые/большие первые)
+              * "asc" - по возрастанию (старые/маленькие первые)
     
     Returns:
         Dict[str, Any]: Результат операции
             При success=True:
             - success (bool): True если список получен успешно
-            - tasks (List[Dict]): Список задач согласно фильтрам и сортировке
+            - tasks (List[Dict]): Список задач
                 Каждая задача содержит:
-                - id (int): Уникальный идентификатор задачи
+                - id (int): Уникальный идентификатор
                 - title (str): Название задачи
                 - description (str): Описание задачи
-                - status (str): Статус задачи ("open" или "completed")
+                - status (str): Статус ("open" или "completed")
                 - created_at (str): Время создания в ISO формате
                 - updated_at (str): Время последнего обновления в ISO формате
             - pagination (Dict): Метаданные пагинации
                 - page (int): Текущая страница
                 - page_size (int): Размер страницы
-                - total_count (int): Общее количество задач (с учетом фильтра)
+                - total_count (int): Общее количество задач
                 - total_pages (int): Общее количество страниц
                 - has_next (bool): Есть ли следующая страница
                 - has_prev (bool): Есть ли предыдущая страница
@@ -247,11 +248,11 @@ async def list_tasks(request: Optional[ListTasksRequest] = None) -> Dict[str, An
         return {"error": "Database not initialized"}
     
     try:
-        # Устанавливаем значения по умолчанию, если request не передан
+        # Используем значения по умолчанию, если request не передан
         if request is None:
             request = ListTasksRequest()
         
-        result = await task_service.list_tasks(
+        result = task_service.list_tasks(
             status_filter=request.status_filter,
             page=request.page,
             page_size=request.page_size,
@@ -261,7 +262,7 @@ async def list_tasks(request: Optional[ListTasksRequest] = None) -> Dict[str, An
         
         return {
             "success": True,
-            **result  # Распаковываем tasks и pagination
+            **result
         }
     except Exception as e:
         return {
@@ -271,35 +272,32 @@ async def list_tasks(request: Optional[ListTasksRequest] = None) -> Dict[str, An
 
 
 @mcp.tool()
-async def update_task_status(request: UpdateTaskStatusRequest) -> Dict[str, Any]:
+def update_task_status(request: UpdateTaskStatusRequest) -> Dict[str, Any]:
     """
     Обновляет статус задачи (открыта/завершена).
     
     Args:
-        request (UpdateTaskStatusRequest): Запрос на обновление статуса
+        request (UpdateTaskStatusRequest): Данные для обновления статуса
             - task_id (int): Уникальный идентификатор задачи. Должен существовать в БД.
               Примеры: 1, 42, 123
-            - status (str): Новый статус задачи. Обязательное поле.
-              Возможные значения: "open" (открыта), "completed" (завершена)
-              Примеры: "completed" - для завершения задачи, "open" - для переоткрытия
+            - status (str): Новый статус задачи. Допустимые значения:
+              * "open" - задача открыта, работа продолжается
+              * "completed" - задача завершена, цель достигнута
     
     Returns:
         Dict[str, Any]: Результат операции
-            При success=True:
-            - success (bool): True если статус обновлен успешно
-            - message (str): Подтверждение обновления с указанием нового статуса
-            При success=False:
-            - success (bool): False при ошибке
-            - error (str): Описание ошибки (например, "Задача с ID X не найдена")
+            - success (bool): True если статус обновлен успешно, False при ошибке
+            - message (str): Описание результата операции
+            - error (str): Описание ошибки (только при success=False)
     """
     if not task_service:
         return {"error": "Database not initialized"}
     
     try:
-        success = await task_service.update_task_status(request.task_id, request.status)
+        success = task_service.update_task_status(request.task_id, request.status)
         
         if success:
-            status_text = "завершена" if request.status == "completed" else "открыта"
+            status_text = "открыта" if request.status == "open" else "завершена"
             return {
                 "success": True,
                 "message": f"Статус задачи {request.task_id} изменен на '{status_text}'"
@@ -317,30 +315,30 @@ async def update_task_status(request: UpdateTaskStatusRequest) -> Dict[str, Any]
 
 
 @mcp.tool()
-async def delete_task(request: DeleteTaskRequest) -> Dict[str, Any]:
+def delete_task(request: DeleteTaskRequest) -> Dict[str, Any]:
     """
     Удаляет задачу и все её summary.
     
     Args:
-        request (DeleteTaskRequest): Запрос на удаление задачи
+        request (DeleteTaskRequest): Данные для удаления
             - task_id (int): Уникальный идентификатор задачи для удаления. Должен существовать в БД.
               Примеры: 1, 42, 123
-              ВНИМАНИЕ: Операция необратима! Будут удалены задача и все связанные summary.
     
     Returns:
         Dict[str, Any]: Результат операции
-            При success=True:
-            - success (bool): True если задача удалена успешно
-            - message (str): Подтверждение удаления с указанием ID задачи
-            При success=False:
-            - success (bool): False при ошибке
-            - error (str): Описание ошибки (например, "Задача с ID X не найдена")
+            - success (bool): True если задача удалена успешно, False при ошибке
+            - message (str): Описание результата операции
+            - error (str): Описание ошибки (только при success=False)
+    
+    Note:
+        Операция необратима! Удаляется задача и все связанные с ней summary.
+        Рекомендуется использовать update_task_status с "completed" вместо удаления.
     """
     if not task_service:
         return {"error": "Database not initialized"}
     
     try:
-        success = await task_service.delete_task(request.task_id)
+        success = task_service.delete_task(request.task_id)
         
         if success:
             return {
@@ -360,66 +358,42 @@ async def delete_task(request: DeleteTaskRequest) -> Dict[str, Any]:
 
 
 @mcp.resource("agent://workflow_rules")
-async def get_agent_workflow_rules() -> str:
+def get_agent_workflow_rules() -> str:
     """
-    Возвращает общие правила работы агента с MCP инструментами.
+    Возвращает общие правила работы AI-агента с MCP инструментами.
     
     Args:
         Нет параметров
     
     Returns:
-        str: Подробные правила использования MCP инструментов в формате Markdown
-            Включает:
-            - Когда создавать новые задачи
-            - Как правильно сохранять summary шагов
-            - Стратегии восстановления контекста
-            - Принципы управления задачами
-            - Рекомендации по оптимизации workflow
+        str: Подробные правила работы в формате Markdown
     """
     return """
 # Правила работы AI-агента с Task Context MCP
 
 ## Общие принципы
 
-### 1. Контекстная осведомленность
-- **Всегда** проверяй наличие активных задач перед началом работы
-- Используй `list_tasks` для получения обзора текущих задач
-- Восстанавливай контекст через `get_task_context` при продолжении работы
+### Когда создавать задачи
+**Создавай задачу (`create_task`) когда:**
+- Пользователь начинает работу над проектом/задачей, которая займет больше одной сессии
+- Есть четкая цель, которую можно разбить на шаги
+- Работа требует сохранения промежуточных результатов
 
-### 2. Проактивное управление задачами
-- Создавай новую задачу (`create_task`) для каждого значимого проекта или запроса
-- Не создавай задачи для простых вопросов, требующих одного ответа
-- Группируй связанные активности в рамках одной задачи
+**НЕ создавай задачу для:**
+- Простых вопросов или разовых запросов
+- Задач, которые решаются за 1-2 сообщения
+- Общих консультаций без конкретной цели
 
-## Когда использовать инструменты
+### Сохранение прогресса
+**Используй `save_summary` регулярно:**
+- После завершения логического этапа работы
+- При достижении промежуточного результата
+- Перед переходом к новому направлению
+- При обнаружении важных проблем или решений
 
-### `create_task` - Создание задачи
-**Используй когда:**
-- Пользователь начинает новый проект или сложную задачу
-- Работа потребует несколько шагов или сессий
-- Нужно отслеживать прогресс выполнения
-- Задача может быть прервана и продолжена позже
-
-**Примеры:**
-- "Разработай веб-приложение"
-- "Проанализируй данные продаж"
-- "Создай план маркетинговой кампании"
-
-**НЕ используй для:**
-- Простых вопросов ("Что такое Python?")
-- Одноразовых запросов
-- Исправления ошибок в коде
-
-### `save_summary` - Сохранение прогресса
-**Используй после каждого значимого шага:**
-- Завершения этапа работы
-- Решения проблемы
-- Принятия важного решения
-- Достижения промежуточного результата
-
-**Структура summary:**
+**Структура хорошего summary:**
 ```
-Выполнено: [что сделано]
+Выполнено: [что конкретно сделано]
 Результат: [что получилось]
 Проблемы: [если были]
 Далее: [следующий шаг]
@@ -546,7 +520,7 @@ async def get_agent_workflow_rules() -> str:
 
 
 @mcp.resource("summary://compression_rules")
-async def get_compression_rules() -> str:
+def get_compression_rules() -> str:
     """
     Возвращает правила для оптимизации summary агентом.
     
@@ -590,7 +564,7 @@ async def get_compression_rules() -> str:
 
 ✅ Хорошо:
 "Выполнено: Создание моделей БД (Task, TaskSummary) с SQLAlchemy
-Результат: Готовые модели с связями, поддержка async операций
+Результат: Готовые модели с связями, поддержка синхронных операций
 Проблемы: нет
 Далее: Реализация сервисного слоя"
 """
@@ -598,20 +572,11 @@ async def get_compression_rules() -> str:
 
 def main():
     """Основная функция для запуска сервера"""
-    print("Запуск Task Context MCP Server...")
-    
-    async def setup_and_run():
-        try:
-            # Инициализируем базу данных
-            await initialize_database()
-            print("База данных инициализирована")
-            print("MCP сервер готов к работе")
-        except Exception as e:
-            print(f"Ошибка при инициализации: {e}")
-            raise
-    
-    # Инициализируем базу данных при старте
-    asyncio.run(setup_and_run())
+    try:
+        # Инициализируем базу данных
+        initialize_database()
+    except Exception as e:
+        raise
     
     # Запускаем сервер (FastMCP сам управляет event loop)
     mcp.run()
