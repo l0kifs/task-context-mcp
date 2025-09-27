@@ -135,18 +135,18 @@ project-name/
 │       │   └── messaging/
 │       │       ├── __init__.py
 │       │       └── publishers.py   # Event publishing
-│       └── entrypoints/          # Application entry points
+│       └── entrypoints/          # Application entry points (implement only as needed)
 │           ├── __init__.py
-│           ├── cli/              # CLI interface
+│           ├── cli/              # CLI interface (optional)
 │           │   ├── __init__.py
 │           │   └── commands.py
-│           ├── mcp/              # Model Context Protocol server entrypoint
+│           ├── mcp/              # Model Context Protocol server entrypoint (optional)
 │           │   ├── __init__.py
-│           │   └── server.py
-│           ├── web/              # Web UI
+│           │   └── server.py     # FastMCP server
+│           ├── web/              # Web UI (optional)
 │           │   ├── __init__.py
 │           │   └── app.py
-│           └── api/              # HTTP API
+│           └── api/              # HTTP API (optional)
 │               ├── __init__.py
 │               ├── main.py       # FastAPI application
 │               ├── routes/
@@ -326,9 +326,16 @@ class SMTPEmailClient:  # Implements EmailService
 
 ### Entry Points (entrypoints)
 **Purpose:** Dependency composition and handling external requests
-- **CLI:** Console commands
-- **API:** HTTP endpoints
-- **Web UI:** Web interface
+- **Entry points are implemented ONLY as needed** based on business requirements
+- **Common types:** CLI, API, Web UI, MCP servers, etc.
+- **Each entry point** should be a separate module with its own dependencies and configuration
+- **Dependency injection** happens at the entry point level
+
+**Implementation Guidelines:**
+- Implement only the entry points required by your application's business needs
+- Each entry point should be self-contained with minimal shared code
+- Use appropriate frameworks for each entry point type (FastAPI for APIs, Typer for CLI, etc.)
+- Keep entry points thin - delegate business logic to services
 
 ```python
 # entrypoints/api/dependencies.py
