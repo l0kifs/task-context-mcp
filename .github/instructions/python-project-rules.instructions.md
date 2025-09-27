@@ -105,11 +105,14 @@ project-name/
 │       ├── config/               # Application configurations
 │       │   ├── __init__.py
 │       │   ├── settings.py       # Pydantic settings
+│       │   ├── logging_config.py # Logging configuration
 │       │   └── environments/     # Configs for different environments
 │       │       ├── __init__.py
+│       │       ├── base.py       # Base settings for inheritance
 │       │       ├── development.py
-│       │       ├── production.py
-│       │       └── testing.py
+│       │       ├── testing.py
+│       │       ├── staging.py    # Staging environment
+│       │       └── production.py
 │       ├── models/               # Application models
 │       │   ├── __init__.py
 │       │   ├── entities.py       # Core entities
@@ -137,7 +140,10 @@ project-name/
 │           ├── cli/              # CLI interface
 │           │   ├── __init__.py
 │           │   └── commands.py
-│           ├── web/              # Web UI (optional)
+│           ├── mcp/              # Model Context Protocol server entrypoint
+│           │   ├── __init__.py
+│           │   └── server.py
+│           ├── web/              # Web UI
 │           │   ├── __init__.py
 │           │   └── app.py
 │           └── api/              # HTTP API
@@ -170,35 +176,54 @@ project-name/
 
 ### Configurations (config)
 **Purpose:** Typed application settings with validation
-- All configurations inherit from `BaseSettings` or `BaseModel`
-- Nested configurations — separate models
-- Unified environment variable style using prefix and separator
-- Validation and properties — through Pydantic
+- **Environment inheritance:** Base settings → Environment-specific → Env variables → Secrets
+- **Security:** Use `SecretStr` for sensitive data, never expose in logs
+- **Dynamic environment detection:** Auto-select config based on `ENVIRONMENT` variable
+- **Validation:** Pydantic validators for environment-specific constraints
+- **Multiple sources:** Support `.env`, environment variables, and secrets
 
 ```python
-# config/settings.py (minimal example)
-from pydantic import BaseModel, Field
+# config/environments/base.py
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
-class DatabaseSettings(BaseModel):
-    host: str = "localhost"
-    port: int = 5432
-
-
-class AppSettings(BaseSettings):
+class BaseEnvironmentSettings(BaseSettings):
     app_name: str = "my-app"
+    version: str = "0.1.0"
+    
+    model_config = SettingsConfigDict(
+        env_prefix="APP_",
+        env_file=[".env.local", ".env"],
+        case_sensitive=False,
+        env_nested_delimiter="__"
+    )
+
+# config/environments/development.py
+class DevelopmentSettings(BaseEnvironmentSettings):
+    debug: bool = True
+    database_url: str = "sqlite+aiosqlite:///./dev.db"
+    log_level: str = "DEBUG"
+
+# config/environments/production.py  
+class ProductionSettings(BaseEnvironmentSettings):
     debug: bool = False
-    database: DatabaseSettings = DatabaseSettings()
+    database_url: SecretStr = Field(alias="DATABASE_URL")
+    log_level: str = "WARNING"
+    
+# config/settings.py - Dynamic environment selection
+import os
+from typing import Type
 
-    # Minimal configuration for loading from .env with prefix
-    model_config = SettingsConfigDict(env_prefix="APP_", env_file=".env")
+def get_settings() -> BaseEnvironmentSettings:
+    env = os.getenv("ENVIRONMENT", "development").lower()
+    settings_map = {
+        "development": DevelopmentSettings,
+        "testing": TestingSettings,
+        "production": ProductionSettings,
+    }
+    return settings_map.get(env, DevelopmentSettings)()
 
-
-if __name__ == "__main__":
-    # Quick example: load settings and print dictionary
-    settings = AppSettings()
-    print(settings.model_dump())
+settings = get_settings()
 ```
 
 ### Models (models)
@@ -474,10 +499,25 @@ uv run pytest
 
 ### Test Environment Configuration - MANDATORY
 **MANDATORY:** Separate test configurations MUST be implemented:
-- Create `config/environments/testing.py` with test-specific settings
-- Use in-memory databases or isolated test databases
-- Override settings in `conftest.py` or test fixtures
-- Never use production configurations in tests
+- **Environment isolation:** `config/environments/testing.py` with test-specific settings  
+- **Database isolation:** In-memory databases (`sqlite:///:memory:`) or isolated test DBs
+- **Setting overrides:** Use `conftest.py` fixtures to override specific settings
+- **Security:** Never use production secrets or external services in tests
+- **Validation testing:** Test configuration validation logic for all environments
+
+```python
+# config/environments/testing.py
+class TestingSettings(BaseEnvironmentSettings):
+    debug: bool = True
+    database_url: str = "sqlite+aiosqlite:///:memory:"
+    log_level: str = "DEBUG"
+    skip_auth: bool = True  # Disable auth for faster tests
+    
+# tests/conftest.py
+@pytest.fixture
+def test_settings():
+    return TestingSettings()
+```
 
 ## Project Configuration (pyproject.toml)
 
@@ -564,13 +604,18 @@ strict = true
 
 ```python
 # Example of secure configuration
+from pydantic import Field, SecretStr, field_validator
+
 class AppSettings(BaseSettings):
-    secret_key: str = Field(..., min_length=32)  # Required and minimum 32 characters
-    jwt_secret: str = Field(..., alias="JWT_SECRET_KEY")
+    secret_key: SecretStr = Field(..., min_length=32)
+    jwt_secret: SecretStr = Field(..., alias="JWT_SECRET_KEY")
+    database_password: SecretStr = Field(alias="DB_PASSWORD")
     
-    @validator("secret_key")
-    def validate_secret_key(cls, v):
-        if v == "changeme" or len(set(v)) < 8:
+    @field_validator("secret_key")
+    @classmethod
+    def validate_secret_key(cls, v: SecretStr) -> SecretStr:
+        secret_value = v.get_secret_value()
+        if secret_value == "changeme" or len(set(secret_value)) < 8:
             raise ValueError("Secret key is too weak")
         return v
 ```
@@ -724,8 +769,8 @@ security:
 	uv tool install safety && uv run safety check
 
 config-check:
-	# Check configuration validity
-	python -c "from config import settings; print('✓ Configurations are valid')"
+	# Validate configurations for all environments
+	uv run python -c "import os; from config import get_settings; [get_settings() for os.environ.update({'ENVIRONMENT': env}) or env in ['development', 'testing', 'production']]; print('✓ All environment configs valid')"
 
 architecture-check:
 	# Check architectural principles compliance
