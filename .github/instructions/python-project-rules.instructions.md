@@ -14,7 +14,18 @@ applyTo: '**'
 
 # Python Project Development Rules
 
+**CRITICAL: These rules are MANDATORY for ALL AI agents working with Python projects.**
+
 Modern rules and best practices for developing Python projects focused on long-term maintenance, readability, and performance.
+
+## AI Agent Compliance Requirements
+
+**MANDATORY BEHAVIOR:** When working with Python projects, AI agents MUST:
+1. Follow ALL rules specified in this document without exceptions
+2. Use ONLY the tools and approaches specified herein
+3. Refuse to use forbidden tools/approaches (pip directly, poetry, etc.)
+4. Always check project structure compliance before making changes
+5. Validate that all changes align with Clean Architecture principles
 
 ## Mandatory Tool Requirements
 
@@ -42,6 +53,12 @@ Modern rules and best practices for developing Python projects focused on long-t
     `curl -LsSf https://astral.sh/uv/install.sh | sh`
 - The agent MUST NOT fallback to direct execution of `pytest`, `pip`, or other tools directly without explicit user permission or explicit task specification. In exceptional cases, the agent may suggest a temporary fallback and ask the user, but not take automatic actions that modify the environment without consent.
 
+**ABSOLUTE PROHIBITION:** AI agents are FORBIDDEN from:
+- Installing or using pip, poetry, pipenv, conda for dependency management
+- Creating requirements.txt files
+- Using virtual environments manually (venv, virtualenv)
+- Bypassing uv for Python package operations
+
 **Dependency structure:**
 - Main dependencies in the `dependencies` section of `pyproject.toml`
 - Dependency groups in `[dependency-groups]` for dev/test/lint
@@ -54,19 +71,21 @@ Modern rules and best practices for developing Python projects focused on long-t
 
 ## Architecture
 
-### Clean Architecture Principles
-Adhere to **Clean Architecture** principles with clear layer separation and proper dependency direction:
+### Clean Architecture Principles - MANDATORY COMPLIANCE
+**AI AGENTS MUST:** Adhere to **Clean Architecture** principles with clear layer separation and proper dependency direction:
 
 1. **`src/models/`** - Application models (depend on nothing)
 2. **`src/business/`** - Business logic (depends only on models, defines interfaces)
 3. **`src/integrations/`** - External system integrations (implement business logic interfaces)
 4. **`src/entrypoints/`** - Entry points (compose business logic with integrations)
 
-**Dependency rule:**
+**MANDATORY Dependency rule (AI agents MUST validate):**
 - Models → independent
 - Business logic → depends on models
 - Integrations → **implement interfaces** from business logic (don't depend on it directly)
 - Entry points → **compose** business logic with concrete integrations
+
+**VALIDATION REQUIRED:** Before any architectural changes, AI agents MUST verify compliance with these dependency rules.
 
 ### Dependency Management
 - **Interfaces (`typing.Protocol`)** are defined in business logic
@@ -418,10 +437,12 @@ except:  # Catching everything
 - **Coverage:** `coverage.py` with reports
 
 ### Running Tests
-All project tests should be run through `uv`:
+**MANDATORY:** All project tests MUST be run through `uv`:
 ```bash
 uv run pytest
 ```
+
+**AI AGENT REQUIREMENT:** Never run pytest directly. Always use `uv run pytest` command.
 
 ## Project Configuration (pyproject.toml)
 
@@ -688,6 +709,51 @@ all: format lint type-check config-check test security architecture-check
 5. **Automated checking** of architectural principles
 
 Start simple, increase complexity as needed. Invest in architecture quality from the beginning - it will pay off when scaling.
+
+## CRITICAL: AI Agent Enforcement Rules
+
+### Pre-Action Validation Checklist
+Before making ANY changes to a Python project, AI agents MUST verify:
+
+1. **Tool Usage:**
+   - ✅ Is `uv` being used for all Python operations?
+   - ❌ Am I about to use pip, poetry, or other forbidden tools?
+
+2. **Architecture Compliance:**
+   - ✅ Does the change respect Clean Architecture layers?
+   - ✅ Are dependencies flowing in the correct direction?
+   - ❌ Am I introducing circular dependencies?
+
+3. **Project Structure:**
+   - ✅ Does the file placement follow the standard src-layout?
+   - ✅ Are configurations using pydantic-settings?
+
+4. **Code Quality:**
+   - ✅ Are type annotations present?
+   - ✅ Is the code following naming conventions?
+   - ✅ Is error handling explicit and appropriate?
+
+### Mandatory Actions
+When working with Python projects, AI agents MUST:
+
+1. **Always check** if `uv` is available before running any Python commands
+2. **Never bypass** the architectural rules for "quick fixes"
+3. **Always validate** that new code fits into the correct layer
+4. **Refuse to proceed** if asked to use forbidden tools without explicit user override
+5. **Suggest corrections** when users request actions that violate these rules
+
+### Error Response Template
+When users request actions that violate these rules, respond with:
+
+```
+I cannot proceed with [specific action] because it violates the mandatory Python project rules:
+- [Specific rule violation]
+- [Alternative compliant approach]
+
+Would you like me to proceed with the compliant approach instead?
+```
+
+**REMEMBER:** These rules are MANDATORY, not suggestions. Compliance is required for ALL Python project work.
 
 ## Quick Checklist for Quality Python Code
 
