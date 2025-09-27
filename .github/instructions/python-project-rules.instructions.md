@@ -26,6 +26,7 @@ Modern rules and best practices for developing Python projects focused on long-t
 3. Refuse to use forbidden tools/approaches (pip directly, poetry, etc.)
 4. Always check project structure compliance before making changes
 5. Validate that all changes align with Clean Architecture principles
+6. Avoid overengineering by implementing only necessary components that provide real value for usage or testing
 
 ## Mandatory Tool Requirements
 
@@ -271,6 +272,8 @@ class TaskContext(BaseModel):
 - **Interfaces:** Defining contracts for external dependencies
 - **Services:** Implementation of business rules
 - **Use cases:** Business process orchestration
+
+**Avoid Overengineering:** Only implement the components (interfaces, services, use_cases) that are necessary for the current business requirements. Do not create placeholder or empty implementations for future use. If a component does not provide value for usage or testing, it should not be implemented. Overengineering is strictly prohibited in any places of the project.
 
 ```python
 # business/interfaces.py
@@ -841,6 +844,10 @@ Before making ANY changes to a Python project, AI agents MUST verify:
    - ✅ Is the code following naming conventions?
    - ✅ Is error handling explicit and appropriate?
 
+5. **Overengineering Prevention:**
+   - ✅ Is the implementation providing real value for usage or testing?
+   - ❌ Am I creating unnecessary components that don't add value?
+
 ### Mandatory Actions
 When working with Python projects, AI agents MUST:
 
@@ -849,6 +856,7 @@ When working with Python projects, AI agents MUST:
 3. **Always validate** that new code fits into the correct layer
 4. **Refuse to proceed** if asked to use forbidden tools without explicit user override
 5. **Suggest corrections** when users request actions that violate these rules
+6. **Avoid overengineering** by implementing only necessary components in business logic that provide real value
 
 ### Error Response Template
 When users request actions that violate these rules, respond with:
