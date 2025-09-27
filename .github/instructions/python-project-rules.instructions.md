@@ -123,16 +123,16 @@ project-name/
 │       │   ├── interfaces.py     # Protocol interfaces
 │       │   ├── services.py       # Business services
 │       │   └── use_cases.py      # Use cases
-│       ├── integrations/         # External system integrations
+│       ├── integrations/         # External system integrations (only implement needed components)
 │       │   ├── __init__.py
-│       │   ├── database/
+│       │   ├── database/            # Only if database is needed
 │       │   │   ├── __init__.py
 │       │   │   ├── repositories.py  # Repository implementations
 │       │   │   └── models.py        # ORM models (if used)
-│       │   ├── external_apis/
+│       │   ├── external_apis/       # Only if external APIs are needed
 │       │   │   ├── __init__.py
 │       │   │   └── clients.py       # HTTP clients
-│       │   └── messaging/
+│       │   └── messaging/           # Only if messaging is needed
 │       │       ├── __init__.py
 │       │       └── publishers.py   # Event publishing
 │       └── entrypoints/          # Application entry points (implement only as needed)
@@ -228,23 +228,42 @@ settings = get_settings()
 
 ### Models (models)
 **Purpose:** Core entities and value objects of the application
-- **Entities:** `dataclasses` or `Pydantic` models with identifiers
-- **Value objects:** Immutable objects without identifiers
+- **Entities:** Pydantic `BaseModel` with identifiers and business logic methods
+- **Value objects:** Pydantic `BaseModel` (immutable through frozen=True for dataclasses, or validation for Pydantic)
 - **Exceptions:** Domain exceptions of the application
+- **Validation:** Use Pydantic `Field` constraints and `field_validator`/`model_validator`
 - **Dependencies:** No external dependencies
 
 ```python
-# models/entities.py
-from dataclasses import dataclass
-from typing import Optional
-from uuid import UUID
+# models/entities.py - Use Pydantic BaseModel for all entities
+from pydantic import BaseModel, Field, field_validator
 
-@dataclass
-class User:
-    id: UUID
-    email: str
-    name: str
-    is_active: bool = True
+class Task(BaseModel):
+    id: int | None = None
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str | None = Field(None, max_length=1000)
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: str) -> str:
+        if v not in ["open", "completed"]:
+            raise ValueError(f"Invalid status: {v}")
+        return v
+
+    def is_completed(self) -> bool:
+        return self.status == "completed"
+
+# models/value_objects.py - Use Pydantic BaseModel for value objects
+class TaskContext(BaseModel):
+    task_id: int = Field(..., gt=0)
+    title: str
+    description: str | None
+    total_steps: int = Field(..., ge=0)
+    context_summary: str
+    last_updated: str
 ```
 
 ### Business Logic (business)
@@ -282,8 +301,10 @@ class UserService:
 ### Integrations (integrations)
 **Purpose:** Interface implementations for interacting with external systems
 - **Repositories:** Working with databases
-- **HTTP clients:** Interaction with external APIs
-- **Event publishing:** Message sending
+- **HTTP clients:** Interaction with external APIs (only if needed)
+- **Event publishing:** Message sending (only if needed)
+
+**Important:** Only implement integration components that are required by your business requirements. Do not create empty directories or placeholder files for integrations that are not needed.
 
 ```python
 # integrations/database/repositories.py
