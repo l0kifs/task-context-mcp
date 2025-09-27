@@ -1,23 +1,93 @@
 [project]
 name = "task-context-mcp"
 version = "0.1.0"
-description = "MCP сервер для сохранения и восстановления контекста задач AI-агента"
+description = "MCP server for Task Context"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "aiosqlite>=0.21.0",
     "fastmcp>=2.5.1",
     "sqlalchemy>=2.0.41",
+    "pydantic>=2.11.7",
+    "pydantic-settings>=2.8.0",
+    "loguru>=0.7.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
     "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
 ]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.8.0",
+    "mypy>=1.13.0",
+]
+
+[project.scripts]
+task-context-mcp = "task_context_mcp.entrypoints.mcp.main:run"
+
+[build-system]
+requires = ["uv_build>=0.8.11,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "DJ", "EM", "EXE", "FA", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SLOT", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "AIR", "PERF", "FURB", "LOG", "RUF"]
+ignore = ["S101", "S104", "COM812", "ISC001"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["S101", "ARG", "FBT", "PLR2004"]
+"scripts/**/*" = ["T201", "INP001"]
+"src/task_context_mcp/entrypoints/mcp/main.py" = ["T201"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["task_context_mcp"]
+force-sort-within-sections = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+pretty = true
+exclude = "src/"
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "conftest"
+ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
-pythonpath = [".", "app"]
+pythonpath = ["src"]
+addopts = "--cov=src --cov-report=html --cov-report=term-missing"
