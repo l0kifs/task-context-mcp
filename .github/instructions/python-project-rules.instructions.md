@@ -123,7 +123,7 @@ project-name/
 │       │   ├── __init__.py
 │       │   ├── interfaces.py     # Protocol interfaces
 │       │   ├── services.py       # Business services
-│       │   └── use_cases.py      # Use cases
+│       │   └── use_cases.py      # Use cases (optional - only if needed)
 │       ├── integrations/         # External system integrations (only implement needed components)
 │       │   ├── __init__.py
 │       │   ├── database/            # Only if database is needed
