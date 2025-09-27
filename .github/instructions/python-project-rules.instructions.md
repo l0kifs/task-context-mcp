@@ -114,6 +114,11 @@ project-name/
 │       │       ├── testing.py
 │       │       ├── staging.py    # Staging environment
 │       │       └── production.py
+│       ├── data/                 # Application data files (logs, databases, cache)
+│       │   ├── __init__.py
+│       │   ├── logs/             # Log files
+│       │   ├── db/               # Local databases
+│       │   └── cache/            # Cache files (if needed)
 │       ├── models/               # Application models
 │       │   ├── __init__.py
 │       │   ├── entities.py       # Core entities
@@ -202,7 +207,7 @@ class BaseEnvironmentSettings(BaseSettings):
 # config/environments/development.py
 class DevelopmentSettings(BaseEnvironmentSettings):
     debug: bool = True
-    database_url: str = "sqlite+aiosqlite:///./dev.db"
+    database_url: str = "sqlite+aiosqlite:///./src/project_name/data/db/dev.db"
     log_level: str = "DEBUG"
 
 # config/environments/production.py  
@@ -225,6 +230,30 @@ def get_settings() -> BaseEnvironmentSettings:
     return settings_map.get(env, DevelopmentSettings)()
 
 settings = get_settings()
+```
+
+### Data (data)
+**Purpose:** Centralized storage for application data files
+- **Logs:** All log files must be stored in `data/logs/`
+- **Databases:** Local database files must be stored in `data/db/`
+- **Cache:** Cache files must be stored in `data/cache/`
+- **Other data:** Any other application data files should be organized in appropriate subdirectories within `data/`
+- **Git ignore:** The entire `data/` directory should be added to `.gitignore` except for necessary files (e.g., keep empty directories with `.gitkeep`)
+
+**MANDATORY:** All data files (logs, databases, cache, etc.) MUST be stored in the `src/project_name/data/` directory. No data files should be placed in the project root or other locations.
+
+```python
+# Example: Logging configuration using data directory
+from config.logging_config import logging_config
+
+def create_app() -> FastAPI:
+    # Logs stored in data/logs/
+    logging_config(log_file="src/project_name/data/logs/app.log" if not settings.debug else None)
+    return app
+
+# Example: Database configuration using data directory
+class DevelopmentSettings(BaseEnvironmentSettings):
+    database_url: str = "sqlite+aiosqlite:///./src/project_name/data/db/dev.db"
 ```
 
 ### Models (models)
@@ -720,7 +749,7 @@ from config.logging_config import logging_config
 
 def create_app() -> FastAPI:
     # Configure logging on application startup
-    logging_config(log_file="logs/app.log" if not settings.debug else None)
+    logging_config(log_file="src/project_name/data/logs/app.log" if not settings.debug else None)
     
     app = FastAPI(
         title=settings.app_name,
@@ -838,6 +867,7 @@ Before making ANY changes to a Python project, AI agents MUST verify:
 3. **Project Structure:**
    - ✅ Does the file placement follow the standard src-layout?
    - ✅ Are configurations using pydantic-settings?
+   - ✅ Are data files (logs, databases, cache) stored in `src/project_name/data/`?
 
 4. **Code Quality:**
    - ✅ Are type annotations present?
@@ -857,6 +887,7 @@ When working with Python projects, AI agents MUST:
 4. **Refuse to proceed** if asked to use forbidden tools without explicit user override
 5. **Suggest corrections** when users request actions that violate these rules
 6. **Avoid overengineering** by implementing only necessary components in business logic that provide real value
+7. **Store all data files** (logs, databases, cache) in the `src/project_name/data/` directory
 
 ### Error Response Template
 When users request actions that violate these rules, respond with:
@@ -892,6 +923,7 @@ Compact and prioritized set of practices for quick code quality checking in most
 - ✅ Layer separation: models, business logic, integrations, entry points
 - ✅ External dependency mocking in unit tests
 - ✅ Using `uv` for environment reproducibility
+- ✅ Data files stored in `src/project_name/data/` directory
 
 ### Performance (see "Asynchronous Programming", "Performance" sections)
 - ✅ Asynchronicity for I/O-bound tasks with proper lifecycle management
