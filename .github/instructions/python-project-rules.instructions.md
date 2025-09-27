@@ -422,27 +422,62 @@ except:  # Catching everything
 
 ## Testing
 
-### Layer-based Testing Strategy
-- **Models:** Unit tests for validation and business rules
-- **Business logic:** Unit tests with interface mocks (90%+ coverage)
-- **Integrations:** Integration tests with real dependencies
+### Layer-based Testing Strategy - MANDATORY COMPLIANCE
+**AI AGENTS MUST:** Strictly follow layer-based testing with proper isolation and coverage:
+
+- **Models:** Unit tests for validation and business rules (no external dependencies)
+- **Business logic:** Unit tests with interface mocks (90%+ coverage) - **MANDATORY: Never use real dependencies for business logic tests**
+- **Integrations:** Integration tests with real dependencies (database, APIs)
 - **Entry points:** E2E tests for critical scenarios
 
-### Tools
-- **Framework:** `pytest` with plugins (`pytest-asyncio`, `pytest-mock`)
-- **Fixtures:** `pytest-factoryboy` for test data
-- **Mocks:** `unittest.mock` or `pytest-mock` for interfaces
-- **Test configurations:** Separate settings for test environment
-- **Property-based tests:** `hypothesis` for complex logic
-- **Coverage:** `coverage.py` with reports
+**MANDATORY Structure:**
+```
+tests/
+├── unit/
+│   ├── test_models/
+│   │   └── test_entities.py
+│   ├── test_business/
+│   │   └── test_services.py
+│   └── test_integrations/  # Unit tests for integration components with mocks
+├── integration/
+│   └── test_database.py    # Real DB tests
+├── e2e/
+│   └── test_api.py         # Full system tests
+└── conftest.py
+```
 
-### Running Tests
+**MANDATORY Dependency Isolation:**
+- Unit tests for business logic MUST use mocks for all interfaces (repositories, external services)
+- Integration tests MAY use real dependencies but MUST be isolated (e.g., test database)
+- E2E tests test the full application stack
+
+### Tools - MANDATORY
+- **Framework:** `pytest` with plugins (`pytest-asyncio`, `pytest-mock`) - **MANDATORY**
+- **Fixtures:** `pytest-factoryboy` for test data - **RECOMMENDED**
+- **Mocks:** `unittest.mock` or `pytest-mock` for interfaces - **MANDATORY for business logic**
+- **Test configurations:** Separate settings for test environment - **MANDATORY**
+- **Property-based tests:** `hypothesis` for complex logic - **RECOMMENDED**
+- **Coverage:** `coverage.py` with reports - **MANDATORY** (90%+ for business logic)
+
+### Running Tests - MANDATORY
 **MANDATORY:** All project tests MUST be run through `uv`:
 ```bash
 uv run pytest
 ```
 
 **AI AGENT REQUIREMENT:** Never run pytest directly. Always use `uv run pytest` command.
+
+**MANDATORY Coverage Reporting:**
+- Tests MUST include coverage reports: `uv run pytest --cov=src/project_name --cov-report=html`
+- Business logic coverage MUST be >=90%
+- Coverage reports MUST be generated and reviewed
+
+### Test Environment Configuration - MANDATORY
+**MANDATORY:** Separate test configurations MUST be implemented:
+- Create `config/environments/testing.py` with test-specific settings
+- Use in-memory databases or isolated test databases
+- Override settings in `conftest.py` or test fixtures
+- Never use production configurations in tests
 
 ## Project Configuration (pyproject.toml)
 
