@@ -28,6 +28,16 @@ Modern rules and best practices for developing Python projects focused on long-t
 5. Validate that all changes align with Clean Architecture principles
 6. Avoid overengineering by implementing only necessary components that provide real value for usage or testing
 
+## Mandatory Development Principles
+
+**MANDATORY COMPLIANCE:** AI agents MUST strictly follow the fundamental software development principles in all development activities:
+
+- **KISS (Keep It Simple, Stupid):** Always implement the simplest solution that works. Avoid unnecessary complexity and over-engineering.
+- **DRY (Don't Repeat Yourself):** Eliminate code duplication by abstracting common functionality into reusable components.
+- **YAGNI (You Aren't Gonna Need It):** Do not implement features or components until they are actually needed. Avoid speculative development that adds no immediate value.
+
+These principles MUST be applied consistently in code implementation, architectural decisions, and project planning to ensure maintainable, efficient, and scalable solutions.
+
 ## Mandatory Tool Requirements
 
 ### UV Package Manager - MANDATORY
