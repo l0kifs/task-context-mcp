@@ -1,5 +1,6 @@
-uv.lock
 *.db
+src/task_context_mcp/data/
+!src/task_context_mcp/data/**/.gitkeep
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

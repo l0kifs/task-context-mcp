@@ -10,7 +10,6 @@ class ProductionSettings(BaseEnvironmentSettings):
 
     debug: bool = False
     database_url: SecretStr = Field(
-        default=SecretStr("sqlite+aiosqlite:///./production.db"),
         description="Database connection URL",
     )
     log_level: str = "WARNING"

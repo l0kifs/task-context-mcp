@@ -25,7 +25,9 @@ class BaseEnvironmentSettings(BaseSettings):
     debug: bool = Field(default=False, description="Debug mode flag")
 
     database_url: SecretStr = Field(
-        default=SecretStr("sqlite+aiosqlite:///./tasks.db"),
+        default=SecretStr(
+            "sqlite+aiosqlite:///./src/task_context_mcp/data/db/tasks.db"
+        ),
         description="Database connection URL",
     )
     log_level: str = Field(default="INFO", description="Logging level")
