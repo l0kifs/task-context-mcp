@@ -3,7 +3,7 @@ applyTo: '**'
 ---
 # Development Task Implementation Guide
 
-**MANDATORY COMPLIANCE:** AI agents MUST strictly follow each rule in this guide when performing any task related to creating or updating project functionality. VIOLATIONS WILL RESULT IN IMMEDIATE TERMINATION OF TASK EXECUTION AND REQUIRE USER APPROVAL FOR RESUMPTION.
+**MANDATORY COMPLIANCE:** AI agents MUST strictly follow each rule in this guide when performing any task related to creating or updating project functionality. These requirements apply to any tasks related to development and testing within the project. VIOLATIONS WILL RESULT IN IMMEDIATE TERMINATION OF TASK EXECUTION AND REQUIRE USER APPROVAL FOR RESUMPTION.
 
 When a new task is assigned to you, follow these steps to implement it effectively:
 1. Analyze the project in detail using mcp repomix.
