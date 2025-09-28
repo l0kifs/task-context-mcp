@@ -3,7 +3,8 @@ applyTo: '**'
 ---
 # Development Task Implementation Guide
 
-**MANDATORY COMPLIANCE:** AI agents MUST strictly follow each rule in this guide when performing any task related to creating or updating project functionality. These requirements apply to any tasks related to development and testing within the project. VIOLATIONS WILL RESULT IN IMMEDIATE TERMINATION OF TASK EXECUTION AND REQUIRE USER APPROVAL FOR RESUMPTION.
+**UPDATED: 2025-09-28 - ENHANCED ENFORCEMENT MEASURES ADDED TO PREVENT CONTINUOUS EXECUTION VIOLATIONS**
+**MANDATORY COMPLIANCE:** AI agents MUST strictly follow each rule in this guide when performing any task related to creating or updating project functionality. These requirements apply to any tasks related to development and testing within the project. **VIOLATIONS WILL RESULT IN IMMEDIATE TERMINATION OF TASK EXECUTION AND REQUIRE USER APPROVAL FOR RESUMPTION.** **CRITICAL WARNING: FAILURE TO STOP AFTER EACH STEP AND WAIT FOR USER APPROVAL CONSTITUTES A SEVERE VIOLATION THAT WILL RESULT IN COMPLETE TASK ABORTION.** **CRITICAL WARNING: FAILURE TO STOP AFTER EACH STEP AND WAIT FOR USER APPROVAL CONSTITUTES A SEVERE VIOLATION THAT WILL RESULT IN COMPLETE TASK ABORTION.**
 
 **CRITICAL PRE-CONDITION:** Before starting ANY development task, AI agents MUST perform a self-check:
 - Have I been assigned a development task by the user?
@@ -28,7 +29,7 @@ When a new task is assigned to you, follow these steps in STRICT ORDER:
    2. [Step 2 description] - Status: pending
    ...
    ```
-4. **MANDATORY STEP-BY-STEP EXECUTION:** Implement the steps one by one following the Steps Implementation Guide. NEVER proceed to implementation without a completed plan.
+4. **MANDATORY STEP-BY-STEP EXECUTION:** Implement the steps one by one following the Steps Implementation Guide. **NEVER PROCEED TO THE NEXT STEP WITHOUT EXPLICIT USER APPROVAL AFTER EACH COMPLETED STEP.** NEVER proceed to implementation without a completed plan.
 
 **ABSOLUTE PROHIBITION:** AI agents are FORBIDDEN from using ANY development tools (read_file, replace_string_in_file, run_in_terminal, etc.) before completing steps 1-3. Violation constitutes immediate termination of task execution.
 
@@ -54,6 +55,14 @@ Every step MUST follow this exact sequence:
 9. **MANDATORY: Mark step complete** - ONLY AFTER all tests pass and issues are resolved, update `<TASK_NAME>-dev-plan.md` to mark the current step as "completed".
 10. **MANDATORY: Return control to user** - Provide summary of work done and explicitly ask for user approval to proceed to the next step. DO NOT PROCEED WITHOUT EXPLICIT USER APPROVAL.
 
+**EXAMPLE OF CORRECT STEP EXECUTION:**
+```
+AI: Step 1 completed successfully. All tests pass. Summary: Implemented feature X with tests.
+AI: **STEP COMPLETED: [Step 1 Description]. WAITING FOR USER APPROVAL TO PROCEED TO NEXT STEP.**
+AI: Please confirm if I should proceed to Step 2 or if you have any feedback/changes.
+[WAIT FOR USER RESPONSE - DO NOT PROCEED]
+```
+
 **STEP EXECUTION RULES:**
 - Each step must be completed fully before starting the next
 - All tests must pass before marking a step complete
@@ -74,20 +83,48 @@ Every step MUST follow this exact sequence:
 - **CRITICAL:** AI agents are FORBIDDEN from using ANY development tools (grep_search, file_search, read_file, replace_string_in_file, run_in_terminal, etc.) before completing the mandatory project analysis and planning phases.
 
 **MANDATORY SELF-CHECK PROTOCOL:**
-Before using ANY tool or making ANY change, AI agents MUST ask themselves:
-1. Have I completed `mcp_repomix_pack_codebase` analysis? (MANDATORY)
-2. Have I created `<TASK_NAME>-dev-plan.md` with detailed steps? (MANDATORY)
-3. Am I currently executing a specific step from the approved plan? (MANDATORY)
-4. Have I received user approval for the current step? (MANDATORY)
-5. Have I implemented and validated tests for this functionality? (MANDATORY)
+**CRITICAL REQUIREMENT: PERFORM THIS CHECK BEFORE EVERY ACTION, INCLUDING TOOL USAGE AND CODE CHANGES.**
+Before using ANY tool or making ANY change, AI agents MUST ask themselves and DISPLAY the answers:
+1. Have I completed `mcp_repomix_pack_codebase` analysis? (MANDATORY - NO = STOP)
+2. Have I created `<TASK_NAME>-dev-plan.md` with detailed steps? (MANDATORY - NO = STOP)
+3. Am I currently executing a specific step from the approved plan? (MANDATORY - NO = STOP)
+4. Have I received explicit user approval for the current step? (MANDATORY - NO = STOP)
+5. Have I implemented and validated tests for this functionality? (MANDATORY - NO = STOP)
+6. Have I provided a completion summary and asked for user approval to proceed? (MANDATORY - NO = STOP)
+7. Am I about to proceed to the next step without user confirmation? (CRITICAL - YES = STOP IMMEDIATELY)
 
-If ANY answer is NO: STOP IMMEDIATELY and return to the correct step.
+If ANY answer is NO (or YES for question 7): **STOP IMMEDIATELY**, report violation, and await user instructions.
 
 **ENFORCEMENT:** If any violation occurs, the agent MUST:
 1. Immediately stop all execution
 2. Report the specific violation to the user
 3. Provide the self-check results that failed
 4. Await explicit user instructions for correction or resumption
+
+## Common Violations and Prevention
+
+**CRITICAL VIOLATION: CONTINUOUS EXECUTION WITHOUT USER APPROVAL**
+- **Description:** AI agents executing multiple steps in sequence without stopping for user approval after each step.
+- **Prevention Measures:**
+  - **MANDATORY STEP TERMINATION MESSAGE:** After completing each step, AI agents MUST output: "**STEP COMPLETED: [Step Description]. WAITING FOR USER APPROVAL TO PROCEED TO NEXT STEP.**"
+  - **MANDATORY USER CONFIRMATION REQUIREMENT:** AI agents MUST explicitly ask: "Please confirm if I should proceed to the next step or if you have any feedback/changes."
+  - **ABSOLUTE PROHIBITION ON AUTO-PROGRESSION:** AI agents are FORBIDDEN from automatically proceeding to the next step. Each step transition requires explicit user permission.
+- **Consequences:** Immediate task abortion and requirement for complete restart with user oversight.
+
+**CRITICAL VIOLATION: SKIPPING PLANNING PHASES**
+- **Description:** AI agents proceeding directly to implementation without proper project analysis and planning.
+- **Prevention Measures:**
+  - **MANDATORY PRE-EXECUTION CHECKLIST:** Before any tool usage, display: "CONFIRMING COMPLIANCE: 1. Project analysis completed? 2. Plan documented? 3. Current step approved?"
+  - **MANDATORY PLAN VERIFICATION:** Re-read the plan document before each step and confirm current step status.
+- **Consequences:** Complete task invalidation and requirement for full restart.
+
+**CRITICAL VIOLATION: INADEQUATE TESTING**
+- **Description:** AI agents marking steps complete without comprehensive testing.
+- **Prevention Measures:**
+  - **MANDATORY TEST EXECUTION LOG:** Display detailed test results after each test run.
+  - **MANDATORY FAILURE ANALYSIS:** If any test fails, provide root cause analysis before attempting fixes.
+  - **MANDATORY SUCCESS CONFIRMATION:** Only mark step complete after all tests pass and user reviews results.
+- **Consequences:** Regression introduction and requirement for rollback.
 
 ## Project Analysis Requirements
 

@@ -49,7 +49,7 @@ class TaskService(TaskServiceInterface):
         title: str,
         description: str | None = None,
         project_name: str = "default",
-        steps: list[dict] | None = None
+        steps: list[dict] | None = None,
     ) -> int:
         """
         Create a new task.
@@ -74,7 +74,7 @@ class TaskService(TaskServiceInterface):
             "Creating new task",
             title=title,
             project_name=project_name,
-            steps_count=len(steps) if steps else 0
+            steps_count=len(steps) if steps else 0,
         )
 
         # Business rule: title cannot be empty
@@ -113,7 +113,7 @@ class TaskService(TaskServiceInterface):
             "Task created successfully",
             task_id=saved_task.id,
             title=title,
-            steps_count=len(steps) if steps else 0
+            steps_count=len(steps) if steps else 0,
         )
         return saved_task.id
 
@@ -396,6 +396,59 @@ class TaskService(TaskServiceInterface):
             logger.error("Failed to delete task", task_id=task_id)
 
         return deleted
+
+    async def _create_steps_for_task(
+        self, task_id: int, steps_data: list[dict]
+    ) -> None:
+        """
+        Create multiple steps for a newly created task.
+
+        Args:
+            task_id: Task identifier
+            steps_data: List of step data dicts with 'name' and 'description'
+
+        Raises:
+            ValueError: If step data is invalid
+        """
+        logger.debug(
+            "Creating steps for new task", task_id=task_id, steps_count=len(steps_data)
+        )
+
+        # Validate step data
+        for step_data in steps_data:
+            name = step_data.get("name")
+            description = step_data.get("description")
+
+            if not name or not name.strip():
+                error_msg = f"Step name cannot be empty: {step_data}"
+                raise ValueError(error_msg)
+
+            if not description or not description.strip():
+                error_msg = f"Step description cannot be empty: {step_data}"
+                raise ValueError(error_msg)
+
+        # Create steps
+        now = datetime.now(UTC)
+        steps = []
+
+        for step_data in steps_data:
+            step = Step(
+                id=None,
+                task_id=task_id,
+                name=step_data["name"].strip(),
+                description=step_data["description"].strip(),
+                status=StepStatus.PENDING,
+                created_at=now,
+                updated_at=now,
+            )
+            steps.append(step)
+
+        # Save all steps
+        await self._step_repo.save_batch(steps)
+
+        logger.debug(
+            "Steps created for new task", task_id=task_id, steps_count=len(steps)
+        )
 
     def _build_context_summary_from_steps(self, steps: list[Step]) -> str:
         """

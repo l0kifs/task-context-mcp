@@ -42,6 +42,91 @@ class TestMCPServerE2E:
             assert task_details["task"]["project_name"] == "test-project"
 
     @pytest.mark.asyncio
+    async def test_create_task_with_steps_immediately(
+        self, mcp_server_url: str
+    ) -> None:
+        """Test creating a task with steps immediately in one call."""
+        async with Client(mcp_server_url) as client:
+            # Create a task with steps in one call
+            result = await client.call_tool(
+                "create_task",
+                {
+                    "title": "Task with Immediate Steps",
+                    "description": "Task created with steps in one API call",
+                    "project_name": "immediate-steps-test",
+                    "steps": [
+                        {"name": "Step 1", "description": "First step"},
+                        {"name": "Step 2", "description": "Second step"},
+                        {"name": "Step 3", "description": "Third step"},
+                    ],
+                },
+            )
+
+            assert result is not None
+            content = result.content[0].text
+            task_data = json.loads(content)
+            assert "task_id" in task_data
+            task_id = task_data["task_id"]
+
+            # Get the task back and verify steps were created
+            task_result = await client.call_tool("get_task", {"task_id": task_id})
+            assert task_result is not None
+            task_content = task_result.content[0].text
+            task_details = json.loads(task_content)
+
+            assert task_details["success"] is True
+            assert task_details["task"]["title"] == "Task with Immediate Steps"
+            assert (
+                task_details["task"]["description"]
+                == "Task created with steps in one API call"
+            )
+            assert task_details["task"]["project_name"] == "immediate-steps-test"
+            assert len(task_details["task"]["steps"]) == 3
+
+            # Verify step details
+            assert task_details["task"]["steps"][0]["name"] == "Step 1"
+            assert task_details["task"]["steps"][0]["description"] == "First step"
+            assert task_details["task"]["steps"][0]["status"] == "pending"
+
+            assert task_details["task"]["steps"][1]["name"] == "Step 2"
+            assert task_details["task"]["steps"][1]["description"] == "Second step"
+            assert task_details["task"]["steps"][1]["status"] == "pending"
+
+            assert task_details["task"]["steps"][2]["name"] == "Step 3"
+            assert task_details["task"]["steps"][2]["description"] == "Third step"
+            assert task_details["task"]["steps"][2]["status"] == "pending"
+
+    @pytest.mark.asyncio
+    async def test_create_task_with_empty_steps(self, mcp_server_url: str) -> None:
+        """Test creating a task with empty steps list."""
+        async with Client(mcp_server_url) as client:
+            # Create a task with empty steps list
+            result = await client.call_tool(
+                "create_task",
+                {
+                    "title": "Task with Empty Steps",
+                    "description": "Task with no steps",
+                    "project_name": "empty-steps-test",
+                    "steps": [],
+                },
+            )
+
+            assert result is not None
+            content = result.content[0].text
+            task_data = json.loads(content)
+            assert "task_id" in task_data
+            task_id = task_data["task_id"]
+
+            # Verify task was created without steps
+            task_result = await client.call_tool("get_task", {"task_id": task_id})
+            task_content = task_result.content[0].text
+            task_details = json.loads(task_content)
+
+            assert task_details["success"] is True
+            assert task_details["task"]["title"] == "Task with Empty Steps"
+            assert len(task_details["task"]["steps"]) == 0
+
+    @pytest.mark.asyncio
     async def test_create_task_with_steps(self, mcp_server_url: str) -> None:
         """Test creating a task with steps."""
         async with Client(mcp_server_url) as client:
@@ -99,7 +184,7 @@ class TestMCPServerE2E:
             task_id = create_data["task_id"]
 
             # Create steps first
-            steps_result = await client.call_tool(
+            await client.call_tool(
                 "create_task_steps",
                 {
                     "task_id": task_id,
@@ -145,7 +230,7 @@ class TestMCPServerE2E:
             task_id = create_data["task_id"]
 
             # Create steps for the task
-            steps_result = await client.call_tool(
+            await client.call_tool(
                 "create_task_steps",
                 {
                     "task_id": task_id,
@@ -374,7 +459,7 @@ class TestMCPServerE2E:
             task_id = create_data["task_id"]
 
             # 2. Create steps for the task
-            steps_result = await client.call_tool(
+            await client.call_tool(
                 "create_task_steps",
                 {
                     "task_id": task_id,
@@ -387,12 +472,12 @@ class TestMCPServerE2E:
             )
 
             # 3. Update status to in progress
-            status_result = await client.call_tool(
+            await client.call_tool(
                 "update_task_status", {"task_id": task_id, "status": "in_progress"}
             )
 
             # 4. Update steps (mark planning as complete)
-            update_steps_result = await client.call_tool(
+            await client.call_tool(
                 "update_task_steps",
                 {
                     "task_id": task_id,
@@ -418,6 +503,6 @@ class TestMCPServerE2E:
             assert context_data["context"]["total_steps"] == 3
 
             # 6. Complete the task
-            complete_result = await client.call_tool(
+            await client.call_tool(
                 "update_task_status", {"task_id": task_id, "status": "completed"}
             )

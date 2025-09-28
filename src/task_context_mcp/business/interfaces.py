@@ -96,7 +96,11 @@ class TaskServiceInterface(Protocol):
     """
 
     async def create_task(
-        self, title: str, description: str | None = None, project_name: str = "default"
+        self,
+        title: str,
+        description: str | None = None,
+        project_name: str = "default",
+        steps: list[dict] | None = None,
     ) -> int:
         """Create a new task and return its ID."""
         ...

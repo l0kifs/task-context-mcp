@@ -22,6 +22,69 @@ EXPECTED_PAGE_THREE = 3
 
 
 @pytest.mark.asyncio
+async def test_create_task_with_steps(task_service):
+    """Test creating a task with steps in one call."""
+    steps_data = [
+        {"name": "Step 1", "description": "First step"},
+        {"name": "Step 2", "description": "Second step"},
+    ]
+
+    task_id = await task_service.create_task(
+        title="Task with Steps",
+        description="Task created with steps",
+        project_name="test",
+        steps=steps_data,
+    )
+
+    assert task_id is not None
+    assert isinstance(task_id, int)
+
+    # Verify task was created with steps
+    task_data = await task_service.get_task(task_id)
+    assert task_data is not None
+    assert task_data.title == "Task with Steps"
+    assert task_data.description == "Task created with steps"
+    assert len(task_data.steps) == 2
+    assert task_data.steps[0].name == "Step 1"
+    assert task_data.steps[0].description == "First step"
+    assert task_data.steps[1].name == "Step 2"
+    assert task_data.steps[1].description == "Second step"
+
+
+@pytest.mark.asyncio
+async def test_create_task_with_empty_steps(task_service):
+    """Test creating a task with empty steps list."""
+    task_id = await task_service.create_task(
+        title="Task with Empty Steps",
+        description="Task with empty steps",
+        project_name="test",
+        steps=[],
+    )
+
+    assert task_id is not None
+
+    # Verify task was created without steps
+    task_data = await task_service.get_task(task_id)
+    assert task_data is not None
+    assert len(task_data.steps) == 0
+
+
+@pytest.mark.asyncio
+async def test_create_task_with_invalid_steps(task_service):
+    """Test creating a task with invalid steps data."""
+    invalid_steps = [
+        {"name": "", "description": "Empty name"},  # Empty name
+        {"name": "Valid", "description": ""},  # Empty description
+    ]
+
+    # Should raise ValueError for invalid steps
+    with pytest.raises(ValueError, match="Step name cannot be empty"):
+        await task_service.create_task(
+            title="Task with Invalid Steps", project_name="test", steps=invalid_steps
+        )
+
+
+@pytest.mark.asyncio
 async def test_create_task(task_service):
     """Test creating a task through service."""
     task_id = await task_service.create_task(
@@ -31,6 +94,69 @@ async def test_create_task(task_service):
     assert task_id is not None
     assert isinstance(task_id, int)
     assert task_id > 0
+
+
+@pytest.mark.asyncio
+async def test_create_task_with_steps(task_service):
+    """Test creating a task with steps in one call."""
+    steps_data = [
+        {"name": "Step 1", "description": "First step"},
+        {"name": "Step 2", "description": "Second step"},
+    ]
+
+    task_id = await task_service.create_task(
+        title="Task with Steps",
+        description="Task created with steps",
+        project_name="test",
+        steps=steps_data,
+    )
+
+    assert task_id is not None
+    assert isinstance(task_id, int)
+
+    # Verify task was created with steps
+    task_data = await task_service.get_task(task_id)
+    assert task_data is not None
+    assert task_data.title == "Task with Steps"
+    assert task_data.description == "Task created with steps"
+    assert len(task_data.steps) == 2
+    assert task_data.steps[0].name == "Step 1"
+    assert task_data.steps[0].description == "First step"
+    assert task_data.steps[1].name == "Step 2"
+    assert task_data.steps[1].description == "Second step"
+
+
+@pytest.mark.asyncio
+async def test_create_task_with_empty_steps(task_service):
+    """Test creating a task with empty steps list."""
+    task_id = await task_service.create_task(
+        title="Task with Empty Steps",
+        description="Task with empty steps",
+        project_name="test",
+        steps=[],
+    )
+
+    assert task_id is not None
+
+    # Verify task was created without steps
+    task_data = await task_service.get_task(task_id)
+    assert task_data is not None
+    assert len(task_data.steps) == 0
+
+
+@pytest.mark.asyncio
+async def test_create_task_with_invalid_steps(task_service):
+    """Test creating a task with invalid steps data."""
+    invalid_steps = [
+        {"name": "", "description": "Empty name"},  # Empty name
+        {"name": "Valid", "description": ""},  # Empty description
+    ]
+
+    # Should raise ValueError for invalid steps
+    with pytest.raises(ValueError, match="Step name cannot be empty"):
+        await task_service.create_task(
+            title="Task with Invalid Steps", project_name="test", steps=invalid_steps
+        )
 
 
 @pytest.mark.asyncio
