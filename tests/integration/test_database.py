@@ -13,7 +13,9 @@ class TestTaskRepositoryIntegration:
         description = "Testing with real DB"
 
         # Create task
-        task_id = await integration_task_service.create_task(title, description)
+        task_id = await integration_task_service.create_task(
+            title, description, project_name="test"
+        )
         assert isinstance(task_id, int)
 
         # Retrieve task
@@ -23,28 +25,29 @@ class TestTaskRepositoryIntegration:
         assert retrieved.title == title
         assert retrieved.description == description
 
-    async def test_save_and_get_summary(self, integration_task_service):
-        """Test saving and retrieving task summary."""
+    async def test_create_and_get_steps(self, integration_task_service):
+        """Test creating and retrieving task steps."""
         # First create a task
         task_id = await integration_task_service.create_task(
-            "Test Task", "Test Description"
+            "Test Task", "Test Description", project_name="test"
         )
 
-        step_number = 1
-        summary_text = "Integration summary"
+        steps_data = [
+            {"step_number": 1, "description": "First step"},
+            {"step_number": 2, "description": "Second step"},
+        ]
 
-        # Save summary
-        result = await integration_task_service.save_summary(
-            task_id, step_number, summary_text
-        )
+        # Create steps
+        result = await integration_task_service.create_task_steps(task_id, steps_data)
         assert result is True
 
         # Get context
         context = await integration_task_service.get_task_context(task_id)
         assert context is not None
         assert context.task_id == task_id
-        assert context.total_steps == 1
-        assert "Integration summary" in context.context_summary
+        assert context.total_steps == 2
+        assert "First step" in context.context_summary
+        assert "Second step" in context.context_summary
 
     async def test_list_tasks(self, integration_task_service):
         """Test listing tasks."""
@@ -52,7 +55,7 @@ class TestTaskRepositoryIntegration:
         task_ids = []
         for i in range(3):
             task_id = await integration_task_service.create_task(
-                f"Task {i}", f"Desc {i}"
+                f"Task {i}", f"Desc {i}", project_name="test"
             )
             task_ids.append(task_id)
 
@@ -67,21 +70,25 @@ class TestTaskRepositoryIntegration:
 
     async def test_update_task_status(self, integration_task_service):
         """Test updating task status."""
-        task_id = await integration_task_service.create_task("Test", "Test")
+        task_id = await integration_task_service.create_task(
+            "Test", "Test", project_name="test"
+        )
 
         # Update status
         result = await integration_task_service.update_task_status(
-            task_id, TaskStatus.COMPLETED
+            task_id, TaskStatus.CLOSED
         )
         assert result is True
 
         # Verify status
         task = await integration_task_service.get_task(task_id)
-        assert task.status == TaskStatus.COMPLETED
+        assert task.status == TaskStatus.CLOSED
 
     async def test_delete_task(self, integration_task_service):
         """Test deleting a task."""
-        task_id = await integration_task_service.create_task("Test", "Test")
+        task_id = await integration_task_service.create_task(
+            "Test", "Test", project_name="test"
+        )
 
         # Delete task
         await integration_task_service.delete_task(task_id)

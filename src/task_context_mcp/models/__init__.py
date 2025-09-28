@@ -1,6 +1,6 @@
 # Models package
 
-from task_context_mcp.models.entities import Task, TaskStatus, TaskSummary
+from task_context_mcp.models.entities import Task, TaskStatus
 from task_context_mcp.models.exceptions import (
     DatabaseError,
     PaginationError,
@@ -35,6 +35,5 @@ __all__ = [
     "TaskNotFoundError",
     "TaskStatus",
     "TaskStatusError",
-    "TaskSummary",
     "TaskValidationError",
 ]

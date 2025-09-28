@@ -4,8 +4,8 @@ import pytest
 
 from task_context_mcp.business.services import TaskService
 from task_context_mcp.integrations.database.repositories import (
+    StepRepositoryImpl,
     TaskRepositoryImpl,
-    TaskSummaryRepositoryImpl,
 )
 from task_context_mcp.models.entities import TaskStatus
 
@@ -24,7 +24,7 @@ class TestTaskManagementE2E:
     @pytest.mark.asyncio
     async def test_complete_task_lifecycle(self, db_manager):
         """
-        Test complete task lifecycle: create, update, add summary, complete.
+        Test complete task lifecycle: create, update, add steps, complete.
 
         This E2E test covers the critical user journey of managing a task
         from creation to completion.
@@ -32,12 +32,14 @@ class TestTaskManagementE2E:
         # Setup
         await db_manager.initialize()
         task_repo = TaskRepositoryImpl(db_manager.get_session())
-        summary_repo = TaskSummaryRepositoryImpl(db_manager.get_session())
-        service = TaskService(task_repo, summary_repo)
+        step_repo = StepRepositoryImpl(db_manager.get_session())
+        service = TaskService(task_repo, step_repo)
 
         # Step 1: Create a task
         task_id = await service.create_task(
-            title="E2E Test Task", description="Testing complete task lifecycle"
+            title="E2E Test Task",
+            description="Testing complete task lifecycle",
+            project_name="test",
         )
         assert task_id is not None
 
@@ -47,27 +49,26 @@ class TestTaskManagementE2E:
         assert task.title == "E2E Test Task"
         assert task.status == TaskStatus.OPEN
 
-        # Step 3: Add a summary
-        summary_added = await service.save_summary(
-            task_id=task_id, step_number=1, summary="Initial analysis completed"
-        )
-        assert summary_added is True
+        # Step 3: Add steps
+        steps_data = [{"step_number": 1, "description": "Initial analysis completed"}]
+        steps_added = await service.create_task_steps(task_id, steps_data)
+        assert steps_added is True
 
-        # Step 4: Get task context and verify summary
+        # Step 4: Get task context and verify steps
         context = await service.get_task_context(task_id)
         assert context is not None
         assert context.task_id == task_id
         assert context.total_steps == 1
         assert "Initial analysis completed" in context.context_summary
 
-        # Step 5: Update task status to completed
-        status_updated = await service.update_task_status(task_id, "completed")
+        # Step 5: Update task status to closed
+        status_updated = await service.update_task_status(task_id, "closed")
         assert status_updated is True
 
         # Step 6: Verify final state
         updated_task = await service.get_task(task_id)
         assert updated_task is not None
-        assert updated_task.status == TaskStatus.COMPLETED
+        assert updated_task.status == TaskStatus.CLOSED
 
         # Cleanup
         deleted = await service.delete_task(task_id)
@@ -83,20 +84,22 @@ class TestTaskManagementE2E:
         # Setup
         await db_manager.initialize()
         task_repo = TaskRepositoryImpl(db_manager.get_session())
-        summary_repo = TaskSummaryRepositoryImpl(db_manager.get_session())
-        service = TaskService(task_repo, summary_repo)
+        step_repo = StepRepositoryImpl(db_manager.get_session())
+        service = TaskService(task_repo, step_repo)
 
         # Create test tasks
         task_ids = []
         for i in range(TASK_COUNT):
             task_id = await service.create_task(
-                title=f"Test Task {i}", description=f"Description {i}"
+                title=f"Test Task {i}",
+                description=f"Description {i}",
+                project_name="test",
             )
             task_ids.append(task_id)
 
-            # Mark some as completed
+            # Mark some as closed
             if i >= COMPLETED_THRESHOLD:
-                await service.update_task_status(task_id, "completed")
+                await service.update_task_status(task_id, "closed")
 
         # Test listing all tasks
         all_tasks = await service.list_tasks()
@@ -106,8 +109,8 @@ class TestTaskManagementE2E:
         open_tasks = await service.list_tasks(status_filter="open")
         assert len(open_tasks.tasks) == OPEN_TASK_COUNT
 
-        completed_tasks = await service.list_tasks(status_filter="completed")
-        assert len(completed_tasks.tasks) == COMPLETED_TASK_COUNT
+        closed_tasks = await service.list_tasks(status_filter="closed")
+        assert len(closed_tasks.tasks) == COMPLETED_TASK_COUNT
 
         # Test pagination
         paginated = await service.list_tasks(page=1, page_size=PAGE_SIZE)
@@ -119,9 +122,9 @@ class TestTaskManagementE2E:
             await service.delete_task(task_id)
 
     @pytest.mark.asyncio
-    async def test_task_with_multiple_summaries(self, db_manager):
+    async def test_task_with_multiple_steps(self, db_manager):
         """
-        Test task with multiple step summaries.
+        Test task with multiple steps.
 
         This E2E test covers the scenario of tracking task progress
         through multiple steps.
@@ -129,37 +132,38 @@ class TestTaskManagementE2E:
         # Setup
         await db_manager.initialize()
         task_repo = TaskRepositoryImpl(db_manager.get_session())
-        summary_repo = TaskSummaryRepositoryImpl(db_manager.get_session())
-        service = TaskService(task_repo, summary_repo)
+        step_repo = StepRepositoryImpl(db_manager.get_session())
+        service = TaskService(task_repo, step_repo)
 
         # Create task
         task_id = await service.create_task(
-            title="Multi-step Task", description="Task with multiple progress steps"
+            title="Multi-step Task",
+            description="Task with multiple progress steps",
+            project_name="test",
         )
 
-        # Add multiple summaries
-        steps = [
-            "Step 1: Initial planning",
-            "Step 2: Implementation started",
-            "Step 3: Core functionality complete",
-            "Step 4: Testing and validation",
-            "Step 5: Final review and completion",
+        # Add multiple steps
+        steps_data = [
+            {"step_number": 1, "description": "Step 1: Initial planning"},
+            {"step_number": 2, "description": "Step 2: Implementation started"},
+            {"step_number": 3, "description": "Step 3: Core functionality complete"},
+            {"step_number": 4, "description": "Step 4: Testing and validation"},
+            {"step_number": 5, "description": "Step 5: Final review and completion"},
         ]
 
-        for step_num, summary in enumerate(steps, 1):
-            added = await service.save_summary(task_id, step_num, summary)
-            assert added is True
+        added = await service.create_task_steps(task_id, steps_data)
+        assert added is True
 
         # Verify context includes all steps
         context = await service.get_task_context(task_id)
         assert context is not None
         assert context.total_steps == MULTI_STEP_COUNT
 
-        for step in steps:
-            assert step in context.context_summary
+        for step_data in steps_data:
+            assert step_data["description"] in context.context_summary
 
         # Complete the task
-        completed = await service.update_task_status(task_id, "completed")
+        completed = await service.update_task_status(task_id, "closed")
         assert completed is True
 
         # Cleanup

@@ -25,7 +25,7 @@ EXPECTED_PAGE_THREE = 3
 async def test_create_task(task_service):
     """Test creating a task through service."""
     task_id = await task_service.create_task(
-        title="Test Task", description="Test Description"
+        title="Test Task", description="Test Description", project_name="test"
     )
 
     assert task_id is not None
@@ -37,7 +37,7 @@ async def test_create_task(task_service):
 async def test_get_task(task_service):
     """Test getting a task through service."""
     # Create task
-    task_id = await task_service.create_task("Test Task", "Test Description")
+    task_id = await task_service.create_task("Test Task", "Test Description", "test")
 
     # Get task
     task_data = await task_service.get_task(task_id)
@@ -50,30 +50,41 @@ async def test_get_task(task_service):
 
 
 @pytest.mark.asyncio
-async def test_save_and_get_summary(task_service):
-    """Test saving and getting summary through service."""
+async def test_create_task_steps(task_service):
+    """Test creating steps for a task through service."""
     # Create task
     task_id = await task_service.create_task("Test Task")
 
-    # Save summary
-    success = await task_service.save_summary(task_id, 1, "Test summary for step 1")
+    # Create steps
+    steps_data = [
+        {"step_number": 1, "description": "First step"},
+        {"step_number": 2, "description": "Second step"},
+    ]
+    success = await task_service.create_task_steps(task_id, steps_data)
     assert success is True
 
-    # Get task with summary
+    # Get task with steps
     task_data = await task_service.get_task(task_id)
     assert task_data is not None
-    # Note: summaries are loaded via repository, not directly accessible here
+    assert len(task_data.steps) == 2
+    assert task_data.steps[0].name == "Step 1"
+    assert task_data.steps[0].description == "First step"
 
 
 @pytest.mark.asyncio
-async def test_update_existing_summary(task_service):
-    """Test updating existing summary through service."""
-    # Create task and summary
+async def test_update_task_steps(task_service):
+    """Test updating existing steps through service."""
+    # Create task and steps
     task_id = await task_service.create_task("Test Task")
-    await task_service.save_summary(task_id, 1, "Original summary")
+    await task_service.create_task_steps(
+        task_id, [{"step_number": 1, "description": "Original step"}]
+    )
 
-    # Update summary
-    success = await task_service.save_summary(task_id, 1, "Updated summary")
+    # Update step
+    step_updates = [
+        {"step_number": 1, "status": "completed", "description": "Updated step"}
+    ]
+    success = await task_service.update_task_steps(task_id, step_updates)
     assert success is True
 
 
@@ -81,11 +92,16 @@ async def test_update_existing_summary(task_service):
 async def test_get_task_context(task_service):
     """Test getting task context through service."""
     # Create task
-    task_id = await task_service.create_task("Test Task", "Test Description")
+    task_id = await task_service.create_task("Test Task", "Test Description", "test")
 
-    # Add summaries
-    await task_service.save_summary(task_id, 1, "Step 1 completed")
-    await task_service.save_summary(task_id, 2, "Step 2 completed")
+    # Add steps
+    await task_service.create_task_steps(
+        task_id,
+        [
+            {"step_number": 1, "description": "Step 1 completed"},
+            {"step_number": 2, "description": "Step 2 completed"},
+        ],
+    )
 
     # Get context
     context = await task_service.get_task_context(task_id)
@@ -95,16 +111,16 @@ async def test_get_task_context(task_service):
     assert context.title == "Test Task"
     assert context.description == "Test Description"
     assert context.total_steps == EXPECTED_TOTAL_STEPS
-    assert "Шаг 1: Step 1 completed" in context.context_summary
-    assert "Шаг 2: Step 2 completed" in context.context_summary
+    assert "Step 1: Step 1 completed" in context.context_summary
+    assert "Step 2: Step 2 completed" in context.context_summary
 
 
 @pytest.mark.asyncio
 async def test_list_tasks(task_service):
     """Test listing tasks through service."""
     # Create tasks
-    task_id1 = await task_service.create_task("Task 1")
-    task_id2 = await task_service.create_task("Task 2")
+    task_id1 = await task_service.create_task("Task 1", project_name="test")
+    task_id2 = await task_service.create_task("Task 2", project_name="test")
 
     # List tasks
     result = await task_service.list_tasks()
@@ -126,9 +142,11 @@ async def test_list_tasks(task_service):
 @pytest.mark.asyncio
 async def test_delete_task(task_service):
     """Test deleting a task through service."""
-    # Create task with summary
-    task_id = await task_service.create_task("Test Task")
-    await task_service.save_summary(task_id, 1, "Test summary")
+    # Create task with steps
+    task_id = await task_service.create_task("Test Task", project_name="test")
+    await task_service.create_task_steps(
+        task_id, [{"step_number": 1, "description": "Test step"}]
+    )
 
     # Delete task
     success = await task_service.delete_task(task_id)
@@ -140,9 +158,10 @@ async def test_delete_task(task_service):
 
 
 @pytest.mark.asyncio
-async def test_save_summary_nonexistent_task(task_service):
-    """Test saving summary for nonexistent task."""
-    success = await task_service.save_summary(999, 1, "Test summary")
+async def test_create_task_steps_nonexistent_task(task_service):
+    """Test creating steps for nonexistent task."""
+    steps_data = [{"step_number": 1, "description": "Test step"}]
+    success = await task_service.create_task_steps(999, steps_data)
     assert success is False
 
 
@@ -150,7 +169,7 @@ async def test_save_summary_nonexistent_task(task_service):
 async def test_update_task_status(task_service):
     """Test updating task status through service."""
     # Create task
-    task_id = await task_service.create_task("Test Task")
+    task_id = await task_service.create_task("Test Task", project_name="test")
 
     # Check initial status
     task_data = await task_service.get_task(task_id)
@@ -158,13 +177,13 @@ async def test_update_task_status(task_service):
     assert task_data.status == TaskStatus.OPEN
 
     # Complete task
-    success = await task_service.update_task_status(task_id, "completed")
+    success = await task_service.update_task_status(task_id, "closed")
     assert success is True
 
     # Verify status update
     task_data = await task_service.get_task(task_id)
     assert task_data is not None
-    assert task_data.status == TaskStatus.COMPLETED
+    assert task_data.status == TaskStatus.CLOSED
 
     # Reopen task
     success = await task_service.update_task_status(task_id, "open")
@@ -187,7 +206,7 @@ async def test_update_task_status_invalid(task_service):
     assert success is False
 
     # Try nonexistent task
-    success = await task_service.update_task_status(999, "completed")
+    success = await task_service.update_task_status(999, "closed")
     assert success is False
 
 
@@ -195,11 +214,11 @@ async def test_update_task_status_invalid(task_service):
 async def test_list_tasks_with_status_filter(task_service):
     """Test filtering tasks by status."""
     # Create tasks
-    task_id1 = await task_service.create_task("Open Task")
-    task_id2 = await task_service.create_task("Completed Task")
+    task_id1 = await task_service.create_task("Open Task", project_name="test")
+    task_id2 = await task_service.create_task("Closed Task", project_name="test")
 
     # Complete one task
-    await task_service.update_task_status(task_id2, "completed")
+    await task_service.update_task_status(task_id2, "closed")
 
     # Get only open tasks
     result = await task_service.list_tasks(status_filter="open")
@@ -207,11 +226,11 @@ async def test_list_tasks_with_status_filter(task_service):
     assert result.tasks[0]["id"] == task_id1
     assert result.tasks[0]["status"] == TaskStatus.OPEN
 
-    # Get only completed tasks
-    result = await task_service.list_tasks(status_filter="completed")
+    # Get only closed tasks
+    result = await task_service.list_tasks(status_filter="closed")
     assert len(result.tasks) == 1
     assert result.tasks[0]["id"] == task_id2
-    assert result.tasks[0]["status"] == TaskStatus.COMPLETED
+    assert result.tasks[0]["status"] == TaskStatus.CLOSED
 
     # Get all tasks
     result = await task_service.list_tasks(status_filter=None)
@@ -224,7 +243,7 @@ async def test_list_tasks_pagination(task_service):
     # Create 5 tasks
     task_ids = []
     for i in range(5):
-        task_id = await task_service.create_task(f"Task {i + 1}")
+        task_id = await task_service.create_task(f"Task {i + 1}", project_name="test")
         task_ids.append(task_id)
 
     # Get first page (2 tasks)
@@ -260,9 +279,9 @@ async def test_list_tasks_pagination(task_service):
 async def test_list_tasks_sorting(task_service):
     """Test task list sorting."""
     # Create tasks with different titles
-    await task_service.create_task("B Task")
-    await task_service.create_task("A Task")
-    await task_service.create_task("C Task")
+    await task_service.create_task("B Task", project_name="test")
+    await task_service.create_task("A Task", project_name="test")
+    await task_service.create_task("C Task", project_name="test")
 
     # Sort by title ascending
     result = await task_service.list_tasks(sort_by="title", sort_order="asc")

@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from task_context_mcp.integrations.database.models import TaskORM, TaskSummaryORM
+from task_context_mcp.integrations.database.models import StepORM, TaskORM
 from task_context_mcp.integrations.database.repositories import (
+    StepRepositoryImpl,
     TaskRepositoryImpl,
-    TaskSummaryRepositoryImpl,
 )
-from task_context_mcp.models.entities import Task, TaskStatus, TaskSummary
+from task_context_mcp.models.entities import Step, StepStatus, Task, TaskStatus
 from task_context_mcp.models.value_objects import (
     PaginationInfo,
     TaskListFilter,
@@ -38,6 +38,7 @@ class TestTaskRepositoryImpl:
             id=1,
             title="Test Task",
             description="Test Description",
+            project_name="test",
             status=TaskStatus.OPEN,
             created_at=datetime.now(UTC),
             updated_at=datetime.now(UTC),
@@ -57,6 +58,7 @@ class TestTaskRepositoryImpl:
         mock_task_orm.id = 1
         mock_task_orm.title = sample_task.title
         mock_task_orm.description = sample_task.description
+        mock_task_orm.project_name = sample_task.project_name
         mock_task_orm.status = sample_task.status
         mock_task_orm.created_at = sample_task.created_at
         mock_task_orm.updated_at = sample_task.updated_at
@@ -90,6 +92,7 @@ class TestTaskRepositoryImpl:
         mock_task_orm.id = 1
         mock_task_orm.title = "Test Task"
         mock_task_orm.description = "Test Description"
+        mock_task_orm.project_name = "test"
         mock_task_orm.status = TaskStatus.OPEN
         mock_task_orm.created_at = datetime.now(UTC)
         mock_task_orm.updated_at = datetime.now(UTC)
@@ -124,13 +127,14 @@ class TestTaskRepositoryImpl:
         mock_session.execute.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_by_id_with_summaries(self, task_repository, mock_session):
-        """Test getting task with summaries loaded."""
+    async def test_get_by_id_with_steps(self, task_repository, mock_session):
+        """Test getting task with steps loaded."""
         # Setup mock
         mock_task_orm = MagicMock()
         mock_task_orm.id = 1
         mock_task_orm.title = "Test Task"
         mock_task_orm.description = "Test Description"
+        mock_task_orm.project_name = "test"
         mock_task_orm.status = TaskStatus.OPEN
         mock_task_orm.created_at = datetime.now(UTC)
         mock_task_orm.updated_at = datetime.now(UTC)
@@ -140,7 +144,7 @@ class TestTaskRepositoryImpl:
         mock_session.execute.return_value = mock_result
 
         # Execute
-        result = await task_repository.get_by_id_with_summaries(1)
+        result = await task_repository.get_by_id_with_steps(1)
 
         # Verify
         assert result is not None
@@ -155,6 +159,7 @@ class TestTaskRepositoryImpl:
         mock_task_orm.id = 1
         mock_task_orm.title = "Test Task"
         mock_task_orm.description = "Test Description"
+        mock_task_orm.project_name = "test"
         mock_task_orm.status = TaskStatus.OPEN
         mock_task_orm.created_at = datetime.now(UTC)
         mock_task_orm.updated_at = datetime.now(UTC)
@@ -198,11 +203,11 @@ class TestTaskRepositoryImpl:
         mock_session.execute.return_value = mock_result
 
         # Execute
-        result = await task_repository.update_status(1, TaskStatus.COMPLETED)
+        result = await task_repository.update_status(1, TaskStatus.CLOSED)
 
         # Verify
         assert result is True
-        assert mock_task_orm.status == TaskStatus.COMPLETED
+        assert mock_task_orm.status == TaskStatus.CLOSED
         mock_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
@@ -214,7 +219,7 @@ class TestTaskRepositoryImpl:
         mock_session.execute.return_value = mock_result
 
         # Execute
-        result = await task_repository.update_status(999, TaskStatus.COMPLETED)
+        result = await task_repository.update_status(999, TaskStatus.CLOSED)
 
         # Verify
         assert result is False
@@ -255,8 +260,8 @@ class TestTaskRepositoryImpl:
         mock_session.commit.assert_not_called()
 
 
-class TestTaskSummaryRepositoryImpl:
-    """Unit tests for TaskSummaryRepositoryImpl with mocked database operations."""
+class TestStepRepositoryImpl:
+    """Unit tests for StepRepositoryImpl with mocked database operations."""
 
     @pytest.fixture
     def mock_session(self):
@@ -264,133 +269,91 @@ class TestTaskSummaryRepositoryImpl:
         return AsyncMock()
 
     @pytest.fixture
-    def summary_repository(self, mock_session):
-        """Create TaskSummaryRepositoryImpl with mocked session."""
-        return TaskSummaryRepositoryImpl(mock_session)
+    def step_repository(self, mock_session):
+        """Create StepRepositoryImpl with mocked session."""
+        return StepRepositoryImpl(mock_session)
 
     @pytest.fixture
-    def sample_summary(self):
-        """Create a sample task summary for testing."""
-        return TaskSummary(
+    def sample_step(self):
+        """Create a sample step for testing."""
+        return Step(
             id=1,
             task_id=1,
-            step_number=1,
-            summary="Test summary",
+            name="Step 1",
+            description="Test step",
+            status=StepStatus.PENDING,
             created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
     def test_repository_initialization(self, mock_session):
         """Test that repository can be initialized."""
-        repository = TaskSummaryRepositoryImpl(mock_session)
+        repository = StepRepositoryImpl(mock_session)
         # Test that session is properly assigned (accessing private member for testing)
         assert hasattr(repository, "_session")
 
-    async def test_save_summary_success(
-        self, summary_repository, mock_session, sample_summary
-    ):
-        """Test successful summary saving."""
+    @pytest.mark.asyncio
+    async def test_save_batch_success(self, step_repository, mock_session, sample_step):
+        """Test successful batch step saving."""
         # Setup mock
-        mock_summary_orm = MagicMock()
-        mock_summary_orm.id = 1
-        mock_summary_orm.task_id = sample_summary.task_id
-        mock_summary_orm.step_number = sample_summary.step_number
-        mock_summary_orm.summary = sample_summary.summary
-        mock_summary_orm.created_at = sample_summary.created_at
+        mock_step_orm = MagicMock()
+        mock_step_orm.id = 1
+        mock_step_orm.task_id = sample_step.task_id
+        mock_step_orm.name = sample_step.name
+        mock_step_orm.description = sample_step.description
+        mock_step_orm.status = sample_step.status
+        mock_step_orm.result = sample_step.result
+        mock_step_orm.created_at = sample_step.created_at
+        mock_step_orm.updated_at = sample_step.updated_at
 
         # Mock the session operations
-        mock_session.merge.return_value = mock_summary_orm
+        mock_session.add_all.return_value = None
         mock_session.commit.return_value = None
-        mock_session.refresh.return_value = None
 
         # Mock the ORM constructor
         with (
-            patch.object(TaskSummaryORM, "__init__", return_value=None),
-            patch.object(TaskSummaryORM, "__new__", return_value=mock_summary_orm),
+            patch.object(StepORM, "__init__", return_value=None),
+            patch.object(StepORM, "__new__", return_value=mock_step_orm),
         ):
             # Execute
-            result = await summary_repository.save(sample_summary)
+            result = await step_repository.save_batch([sample_step])
 
             # Verify
-            assert result.id == 1
-            assert result.task_id == sample_summary.task_id
-            assert result.step_number == sample_summary.step_number
-            mock_session.merge.assert_called_once()
+            assert len(result) == 1
+            assert result[0].id == 1
+            assert result[0].task_id == sample_step.task_id
+            assert result[0].name == sample_step.name
+            mock_session.add_all.assert_called_once()
             mock_session.commit.assert_called_once()
-            mock_session.refresh.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_get_by_task_and_step_found(self, summary_repository, mock_session):
-        """Test getting summary by task ID and step when found."""
+    async def test_update_batch_success(self, step_repository, mock_session):
+        """Test successful batch step updates."""
         # Setup mock
-        mock_summary_orm = MagicMock()
-        mock_summary_orm.id = 1
-        mock_summary_orm.task_id = 1
-        mock_summary_orm.step_number = 1
-        mock_summary_orm.summary = "Test summary"
-        mock_summary_orm.created_at = datetime.now(UTC)
+        mock_step_orm = MagicMock()
+        mock_step_orm.name = "Step 1"
+        mock_step_orm.status = StepStatus.PENDING
+        mock_step_orm.updated_at = datetime.now(UTC)
 
+        # Mock the execute result - scalar_one_or_none should return the mock object
         mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = mock_summary_orm
+        mock_result.scalar_one_or_none.return_value = mock_step_orm
         mock_session.execute.return_value = mock_result
 
-        # Execute
-        result = await summary_repository.get_by_task_and_step(1, 1)
-
-        # Verify
-        assert result is not None
-        assert result.id == 1
-        assert result.task_id == 1
-        assert result.step_number == 1
-        mock_session.execute.assert_called_once()
-
-    async def test_get_by_task_and_step_not_found(
-        self, summary_repository, mock_session
-    ):
-        """Test getting summary by task ID and step when not found."""
-        # Setup mock
-        mock_result = MagicMock()
-        mock_result.scalar_one_or_none.return_value = None
-        mock_session.execute.return_value = mock_result
-
-        # Execute
-        result = await summary_repository.get_by_task_and_step(1, 999)
-
-        # Verify
-        assert result is None
-        mock_session.execute.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_get_all_by_task_id(self, summary_repository, mock_session):
-        """Test getting all summaries for a task."""
-        # Setup mock
-        mock_summary_orm1 = MagicMock()
-        mock_summary_orm1.id = 1
-        mock_summary_orm1.task_id = 1
-        mock_summary_orm1.step_number = 1
-        mock_summary_orm1.summary = "Summary 1"
-        mock_summary_orm1.created_at = datetime.now(UTC)
-
-        mock_summary_orm2 = MagicMock()
-        mock_summary_orm2.id = 2
-        mock_summary_orm2.task_id = 1
-        mock_summary_orm2.step_number = 2
-        mock_summary_orm2.summary = "Summary 2"
-        mock_summary_orm2.created_at = datetime.now(UTC)
-
-        mock_result = MagicMock()
-        mock_result.scalars.return_value.all.return_value = [
-            mock_summary_orm1,
-            mock_summary_orm2,
+        updates = [
+            {
+                "step_name": "Step 1",
+                "status": StepStatus.COMPLETED,
+                "description": "Updated description",
+                "updated_at": datetime.now(UTC),
+            }
         ]
-        mock_session.execute.return_value = mock_result
 
         # Execute
-        result = await summary_repository.get_all_by_task_id(1)
+        result = await step_repository.update_batch(1, updates)
 
         # Verify
-        assert len(result) == 2
-        assert result[0].step_number == 1
-        assert result[1].step_number == 2
-        assert result[0].task_id == 1
-        assert result[1].task_id == 1
-        mock_session.execute.assert_called_once()
+        assert result is True
+        assert mock_step_orm.status == StepStatus.COMPLETED
+        assert mock_step_orm.description == "Updated description"
+        mock_session.commit.assert_called_once()

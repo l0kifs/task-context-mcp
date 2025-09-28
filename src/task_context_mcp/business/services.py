@@ -3,15 +3,16 @@
 from datetime import UTC, datetime
 
 from task_context_mcp.business.interfaces import (
+    StepRepository,
     TaskRepository,
     TaskServiceInterface,
-    TaskSummaryRepository,
 )
 from task_context_mcp.config.logging_config import get_logger
 from task_context_mcp.models.entities import (
+    Step,
+    StepStatus,
     Task,
     TaskStatus,
-    TaskSummary,
 )
 from task_context_mcp.models.value_objects import (
     TaskContext,
@@ -31,19 +32,25 @@ class TaskService(TaskServiceInterface):
     """
 
     def __init__(
-        self, task_repository: TaskRepository, summary_repository: TaskSummaryRepository
+        self, task_repository: TaskRepository, step_repository: StepRepository
     ):
         """
         Initialize the task service.
 
         Args:
             task_repository: Repository for task data access
-            summary_repository: Repository for task summary data access
+            step_repository: Repository for step data access
         """
         self._task_repo = task_repository
-        self._summary_repo = summary_repository
+        self._step_repo = step_repository
 
-    async def create_task(self, title: str, description: str | None = None) -> int:
+    async def create_task(
+        self,
+        title: str,
+        description: str | None = None,
+        project_name: str = "default",
+        steps: list[dict] | None = None
+    ) -> int:
         """
         Create a new task.
 
@@ -52,19 +59,34 @@ class TaskService(TaskServiceInterface):
         Args:
             title: Task title (required, non-empty)
             description: Optional task description
+            project_name: Project name (required, non-empty)
+            steps: Optional list of steps to create with the task. Each step dict contains:
+                - name: Step name (required)
+                - description: Step description (optional)
 
         Returns:
             Task ID of the created task
 
         Raises:
-            ValueError: If title is empty or invalid
+            ValueError: If title or project_name is empty or invalid
         """
-        logger.info("Creating new task", title=title)
+        logger.info(
+            "Creating new task",
+            title=title,
+            project_name=project_name,
+            steps_count=len(steps) if steps else 0
+        )
 
         # Business rule: title cannot be empty
         if not title or not title.strip():
             logger.warning("Attempted to create task with empty title")
             error_msg = "Task title cannot be empty"
+            raise ValueError(error_msg)
+
+        # Business rule: project_name cannot be empty
+        if not project_name or not project_name.strip():
+            logger.warning("Attempted to create task with empty project_name")
+            error_msg = "Task project_name cannot be empty"
             raise ValueError(error_msg)
 
         # Create task entity
@@ -74,6 +96,7 @@ class TaskService(TaskServiceInterface):
             id=None,  # Will be set by repository
             title=title.strip(),
             description=description.strip() if description else None,
+            project_name=project_name.strip(),
             status=TaskStatus.OPEN,
             created_at=now,
             updated_at=now,
@@ -82,22 +105,31 @@ class TaskService(TaskServiceInterface):
         # Save to repository
         saved_task = await self._task_repo.save(task)
 
-        logger.info("Task created successfully", task_id=saved_task.id, title=title)
+        # Create steps if provided
+        if steps:
+            await self._create_steps_for_task(saved_task.id, steps)
+
+        logger.info(
+            "Task created successfully",
+            task_id=saved_task.id,
+            title=title,
+            steps_count=len(steps) if steps else 0
+        )
         return saved_task.id
 
     async def get_task(self, task_id: int) -> Task | None:
         """
-        Get a task by ID with all its summaries.
+        Get a task by ID with all its steps.
 
         Args:
             task_id: Task identifier
 
         Returns:
-            Task with summaries if found, None otherwise
+            Task with steps if found, None otherwise
         """
         logger.debug("Getting task", task_id=task_id)
 
-        task = await self._task_repo.get_by_id_with_summaries(task_id)
+        task = await self._task_repo.get_by_id_with_steps(task_id)
 
         if task:
             logger.debug("Task found", task_id=task_id, title=task.title)
@@ -121,27 +153,25 @@ class TaskService(TaskServiceInterface):
         """
         logger.debug("Getting task context", task_id=task_id)
 
-        task = await self._task_repo.get_by_id_with_summaries(task_id)
+        task = await self._task_repo.get_by_id_with_steps(task_id)
         if not task:
             logger.debug("Task not found for context", task_id=task_id)
             return None
 
-        # Get all summaries for the task
-        summaries = await self._summary_repo.get_all_by_task_id(task_id)
-
-        # Build optimized context summary
-        context_summary = self._build_context_summary(summaries)
+        # Build optimized context summary from steps
+        context_summary = self._build_context_summary_from_steps(task.steps)
 
         context = TaskContext(
             task_id=task.id,
             title=task.title,
             description=task.description,
-            total_steps=len(summaries),
+            status=task.status,
+            total_steps=len(task.steps),
             context_summary=context_summary,
             last_updated=task.updated_at.isoformat(),
         )
 
-        logger.debug("Task context built", task_id=task_id, total_steps=len(summaries))
+        logger.debug("Task context built", task_id=task_id, total_steps=len(task.steps))
         return context
 
     async def list_tasks(
@@ -180,77 +210,129 @@ class TaskService(TaskServiceInterface):
         )
         return result
 
-    async def save_summary(self, task_id: int, step_number: int, summary: str) -> bool:
+    async def create_task_steps(self, task_id: int, steps_data: list[dict]) -> bool:
         """
-        Save summary for a task step.
-
-        If a summary for this step already exists, it will be updated.
-        Updates the task's updated_at timestamp.
+        Create multiple steps for a task.
 
         Args:
             task_id: Task identifier
-            step_number: Step number (must be positive)
-            summary: Summary text (cannot be empty)
+            steps_data: List of step data dicts with 'step_number' and 'description'
 
         Returns:
-            True if summary was saved, False if task doesn't exist
+            True if steps were created, False if task doesn't exist
 
         Raises:
-            ValueError: If step_number <= 0 or summary is empty
+            ValueError: If step data is invalid
         """
-        logger.info("Saving task summary", task_id=task_id, step_number=step_number)
-
-        # Business rules validation
-        if step_number <= 0:
-            logger.warning(
-                "Invalid step number", task_id=task_id, step_number=step_number
-            )
-            error_msg = "Step number must be positive"
-            raise ValueError(error_msg)
-
-        if not summary or not summary.strip():
-            logger.warning(
-                "Empty summary provided", task_id=task_id, step_number=step_number
-            )
-            error_msg = "Summary cannot be empty"
-            raise ValueError(error_msg)
+        logger.info("Creating task steps", task_id=task_id, steps_count=len(steps_data))
 
         # Check if task exists
         task = await self._task_repo.get_by_id(task_id)
         if not task:
-            logger.warning("Task not found for summary", task_id=task_id)
+            logger.warning("Task not found for step creation", task_id=task_id)
             return False
 
-        # Check if summary already exists for this step
-        existing_summary = await self._summary_repo.get_by_task_and_step(
-            task_id, step_number
-        )
+        # Validate step data
+        for step_data in steps_data:
+            step_number = step_data.get("step_number")
+            description = step_data.get("description")
 
+            if not isinstance(step_number, int) or step_number <= 0:
+                error_msg = f"Invalid step number: {step_number}"
+                raise ValueError(error_msg)
+
+            if not description or not description.strip():
+                error_msg = f"Empty description for step {step_number}"
+                raise ValueError(error_msg)
+
+        # Create steps
         now = datetime.now(UTC)
+        steps = []
 
-        if existing_summary:
-            # Update existing summary
-            existing_summary.summary = summary.strip()
-            existing_summary.created_at = now  # Update timestamp
-            await self._summary_repo.save(existing_summary)
-            logger.info("Summary updated", task_id=task_id, step_number=step_number)
-        else:
-            # Create new summary
-            new_summary = TaskSummary(
+        for step_data in steps_data:
+            step = Step(
                 id=None,
                 task_id=task_id,
-                step_number=step_number,
-                summary=summary.strip(),
+                name=f"Step {step_data['step_number']}",
+                description=step_data["description"].strip(),
+                status=StepStatus.PENDING,
                 created_at=now,
+                updated_at=now,
             )
-            await self._summary_repo.save(new_summary)
-            logger.info("Summary created", task_id=task_id, step_number=step_number)
+            steps.append(step)
+
+        # Save all steps
+        await self._step_repo.save_batch(steps)
 
         # Update task's updated_at timestamp
-        await self._task_repo.update_status(
-            task_id, task.status
-        )  # This will update updated_at
+        await self._task_repo.update_status(task_id, task.status)
 
+        logger.info("Task steps created", task_id=task_id, steps_count=len(steps))
+        return True
+
+    async def update_task_steps(self, task_id: int, step_updates: list[dict]) -> bool:
+        """
+        Update multiple steps for a task.
+
+        Args:
+            task_id: Task identifier
+            step_updates: List of step update dicts with 'step_number',
+            'status', and optional 'description'
+
+        Returns:
+            True if steps were updated, False if task doesn't exist
+
+        Raises:
+            ValueError: If step update data is invalid
+        """
+        logger.info(
+            "Updating task steps", task_id=task_id, updates_count=len(step_updates)
+        )
+
+        # Check if task exists
+        task = await self._task_repo.get_by_id(task_id)
+        if not task:
+            logger.warning("Task not found for step updates", task_id=task_id)
+            return False
+
+        # Validate and collect updates
+        updates = []
+        now = datetime.now(UTC)
+
+        for update_data in step_updates:
+            step_number = update_data.get("step_number")
+            status = update_data.get("status")
+            description = update_data.get("description")
+
+            if not isinstance(step_number, int) or step_number <= 0:
+                error_msg = f"Invalid step number: {step_number}"
+                raise ValueError(error_msg)
+
+            valid_statuses = [
+                StepStatus.PENDING,
+                StepStatus.COMPLETED,
+                StepStatus.CANCELLED,
+            ]
+            if status not in valid_statuses:
+                error_msg = f"Invalid status for step {step_number}: {status}"
+                raise ValueError(error_msg)
+
+            updates.append(
+                {
+                    "step_name": f"Step {step_number}",
+                    "status": status,
+                    "description": description.strip() if description else None,
+                    "updated_at": now,
+                }
+            )
+
+        # Update steps
+        await self._step_repo.update_batch(task_id, updates)
+
+        # Update task's updated_at timestamp
+        await self._task_repo.update_status(task_id, task.status)
+
+        logger.info("Task steps updated", task_id=task_id, updates_count=len(updates))
         return True
 
     async def update_task_status(self, task_id: int, status: str) -> bool:
@@ -270,7 +352,8 @@ class TaskService(TaskServiceInterface):
         logger.info("Updating task status", task_id=task_id, status=status)
 
         # Business rule: validate status
-        if status not in [TaskStatus.OPEN, TaskStatus.COMPLETED]:
+        valid_statuses = [TaskStatus.OPEN, TaskStatus.IN_PROGRESS, TaskStatus.CLOSED]
+        if status not in valid_statuses:
             logger.warning("Invalid status provided", task_id=task_id, status=status)
             return False
 
@@ -314,27 +397,128 @@ class TaskService(TaskServiceInterface):
 
         return deleted
 
-    def _build_context_summary(self, summaries: list[TaskSummary]) -> str:
+    def _build_context_summary_from_steps(self, steps: list[Step]) -> str:
         """
-        Build optimized context summary from task summaries.
+        Build optimized context summary from task steps.
 
         Creates a compact representation suitable for AI context restoration.
 
         Args:
-            summaries: List of task summaries ordered by step number
+            steps: List of task steps
 
         Returns:
             Formatted context summary string
         """
-        if not summaries:
+        if not steps:
             return "Задача только создана, шагов пока нет."
 
-        # Sort summaries by step number
-        sorted_summaries = sorted(summaries, key=lambda s: s.step_number)
+        # Sort steps by name (which includes step number)
+        sorted_steps = sorted(steps, key=lambda s: s.name)
 
-        context_parts = [
-            f"Шаг {summary.step_number}: {summary.summary}"
-            for summary in sorted_summaries
-        ]
+        context_parts = []
+        for step in sorted_steps:
+            status_emoji = {
+                StepStatus.PENDING: "⏳",
+                StepStatus.COMPLETED: "✅",
+                StepStatus.CANCELLED: "❌",
+            }.get(step.status, "❓")
+
+            result_part = f" ({step.result})" if step.result else ""
+            step_line = f"{status_emoji} {step.name}: {step.description}{result_part}"
+            context_parts.append(step_line)
 
         return "\n".join(context_parts)
+
+    async def get_task_with_steps(self, task_id: int) -> dict | None:
+        """
+        Get a task with all its steps.
+
+        Args:
+            task_id: Task identifier
+
+        Returns:
+            Dict with task and steps data, or None if not found
+        """
+        logger.debug("Getting task with steps", task_id=task_id)
+
+        # Get task
+        task = await self._task_repo.get_by_id(task_id)
+        if not task:
+            return None
+
+        # Get steps
+        steps = await self._step_repo.get_by_task_id(task_id)
+
+        # Convert to dict format
+        task_dict = {
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "project_name": task.project_name,
+            "status": task.status,
+            "created_at": task.created_at,
+            "updated_at": task.updated_at,
+        }
+
+        steps_list = []
+        for step in steps:
+            step_dict = {
+                "id": step.id,
+                "task_id": step.task_id,
+                "name": step.name,
+                "description": step.description,
+                "status": step.status,
+                "result": step.result,
+                "created_at": step.created_at,
+                "updated_at": step.updated_at,
+            }
+            steps_list.append(step_dict)
+
+        return {
+            "task": task_dict,
+            "steps": steps_list,
+        }
+
+    async def update_task(
+        self,
+        task_id: int,
+        title: str | None = None,
+        description: str | None = None,
+        status: str | None = None,
+    ) -> bool:
+        """
+        Update task details.
+
+        Args:
+            task_id: Task identifier
+            title: New title (optional)
+            description: New description (optional)
+            status: New status (optional)
+
+        Returns:
+            True if updated successfully, False if task not found
+        """
+        logger.debug("Updating task", task_id=task_id, title=title, status=status)
+
+        # Validate status if provided
+        if status and status not in ["open", "in_progress", "closed"]:
+            msg = f"Invalid status: {status}"
+            raise ValueError(msg)
+
+        # Get current task
+        task = await self._task_repo.get_by_id(task_id)
+        if not task:
+            return False
+
+        # Update fields if provided
+        if title is not None:
+            task.title = title
+        if description is not None:
+            task.description = description
+        if status is not None:
+            task.status = status
+
+        # Save updated task
+        await self._task_repo.save(task)
+        logger.debug("Task updated", task_id=task_id)
+        return True

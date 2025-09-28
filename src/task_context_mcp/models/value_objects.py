@@ -16,6 +16,7 @@ class TaskContext(BaseModel):
     task_id: int = Field(..., gt=0)
     title: str
     description: str | None
+    status: str
     total_steps: int = Field(..., ge=0)
     context_summary: str
     last_updated: str
@@ -36,7 +37,7 @@ class TaskListFilter(BaseModel):
     @classmethod
     def validate_status_filter(cls, v: str | None) -> str | None:
         """Validate status filter."""
-        if v is not None and v not in ["open", "completed"]:
+        if v is not None and v not in ["open", "in_progress", "closed"]:
             msg = f"Invalid status filter: {v}"
             raise ValueError(msg)
         return v
