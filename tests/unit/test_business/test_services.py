@@ -2,10 +2,17 @@
 
 from pathlib import Path
 import sys
+from unittest.mock import AsyncMock
 
 import pytest
 
+from task_context_mcp.business.services import TaskService
 from task_context_mcp.models.entities import TaskStatus
+from task_context_mcp.models.value_objects import (
+    PaginationInfo,
+    TaskListFilter,
+    TaskListResult,
+)
 
 # Add src to path for imports
 src_path = Path(__file__).parent.parent / "src"
@@ -418,3 +425,91 @@ async def test_list_tasks_sorting(task_service):
     result = await task_service.list_tasks(sort_by="title", sort_order="desc")
     titles = [task["title"] for task in result.tasks]
     assert titles == ["C Task", "B Task", "A Task"]
+
+
+@pytest.mark.asyncio
+async def test_list_tasks_service_creates_correct_filter():
+    """Test that TaskService creates correct TaskListFilter with project_filter."""
+    # Create mock repositories
+    mock_task_repo = AsyncMock()
+    mock_step_repo = AsyncMock()
+
+    # Setup mock return value
+    mock_result = TaskListResult(
+        tasks=[],
+        pagination=PaginationInfo(
+            page=1,
+            page_size=10,
+            total_count=0,
+            total_pages=0,
+            has_next=False,
+            has_prev=False,
+        ),
+    )
+    mock_task_repo.list_tasks.return_value = mock_result
+
+    # Create service
+    service = TaskService(mock_task_repo, mock_step_repo)
+
+    # Test with project_filter
+    await service.list_tasks(
+        status_filter="open",
+        project_filter="test-project",
+        page=1,
+        page_size=5,
+        sort_by="title",
+        sort_order="asc",
+    )
+
+    # Verify that the repository was called with correct TaskListFilter
+    mock_task_repo.list_tasks.assert_called_once()
+    args, _ = mock_task_repo.list_tasks.call_args
+
+    # Check that first argument is TaskListFilter with correct values
+    filter_criteria = args[0]
+    assert isinstance(filter_criteria, TaskListFilter)
+    assert filter_criteria.status_filter == "open"
+    assert filter_criteria.project_filter == "test-project"
+    assert filter_criteria.sort_by == "title"
+    assert filter_criteria.sort_order == "asc"
+
+    # Check pagination parameters
+    assert args[1] == 1  # page
+    assert args[2] == 5  # page_size
+
+
+@pytest.mark.asyncio
+async def test_list_tasks_service_handles_none_project_filter():
+    """Test that TaskService handles None project_filter correctly."""
+    # Create mock repositories
+    mock_task_repo = AsyncMock()
+    mock_step_repo = AsyncMock()
+
+    # Setup mock return value
+    mock_result = TaskListResult(
+        tasks=[],
+        pagination=PaginationInfo(
+            page=1,
+            page_size=10,
+            total_count=0,
+            total_pages=0,
+            has_next=False,
+            has_prev=False,
+        ),
+    )
+    mock_task_repo.list_tasks.return_value = mock_result
+
+    # Create service
+    service = TaskService(mock_task_repo, mock_step_repo)
+
+    # Test with None project_filter
+    await service.list_tasks(project_filter=None)
+
+    # Verify that the repository was called with correct TaskListFilter
+    mock_task_repo.list_tasks.assert_called_once()
+    args, _ = mock_task_repo.list_tasks.call_args
+
+    # Check that TaskListFilter has None project_filter
+    filter_criteria = args[0]
+    assert isinstance(filter_criteria, TaskListFilter)
+    assert filter_criteria.project_filter is None

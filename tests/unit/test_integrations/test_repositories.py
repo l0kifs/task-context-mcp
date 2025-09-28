@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from task_context_mcp.integrations.database.models import StepORM, TaskORM
+from task_context_mcp.integrations.database.models import StepORM
 from task_context_mcp.integrations.database.repositories import (
     StepRepositoryImpl,
     TaskRepositoryImpl,
@@ -53,7 +53,7 @@ class TestTaskRepositoryImpl:
     @pytest.mark.asyncio
     async def test_save_task_success(self, task_repository, mock_session, sample_task):
         """Test successful task saving."""
-        # Setup mock
+        # Setup mock for existing task update path (since sample_task has id=1)
         mock_task_orm = MagicMock()
         mock_task_orm.id = 1
         mock_task_orm.title = sample_task.title
@@ -63,26 +63,26 @@ class TestTaskRepositoryImpl:
         mock_task_orm.created_at = sample_task.created_at
         mock_task_orm.updated_at = sample_task.updated_at
 
+        # Mock the database query result for update path
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_task_orm
+
         # Mock the session operations
+        mock_session.execute.return_value = mock_result
         mock_session.add.return_value = None
         mock_session.commit.return_value = None
         mock_session.refresh.return_value = None
 
-        # Mock the ORM constructor
-        with (
-            patch.object(TaskORM, "__init__", return_value=None),
-            patch.object(TaskORM, "__new__", return_value=mock_task_orm),
-        ):
-            # Execute
-            result = await task_repository.save(sample_task)
+        # Execute
+        result = await task_repository.save(sample_task)
 
-            # Verify
-            assert result.id == 1
-            assert result.title == sample_task.title
-            assert result.status == sample_task.status
-            mock_session.add.assert_called_once()
-            mock_session.commit.assert_called_once()
-            mock_session.refresh.assert_called_once()
+        # Verify
+        assert result.id == 1
+        assert result.title == sample_task.title
+        assert result.status == sample_task.status
+        mock_session.execute.assert_called_once()
+        mock_session.commit.assert_called_once()
+        mock_session.refresh.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_by_id_found(self, task_repository, mock_session):
@@ -189,6 +189,94 @@ class TestTaskRepositoryImpl:
         assert result.pagination.total_count == 1
         assert result.pagination.page == 1
         assert result.pagination.page_size == 10
+
+    @pytest.mark.asyncio
+    async def test_list_tasks_with_project_filter(self, task_repository, mock_session):
+        """Test listing tasks with project filter."""
+        # Setup mock
+        mock_task_orm = MagicMock()
+        mock_task_orm.id = 1
+        mock_task_orm.title = "Test Task"
+        mock_task_orm.description = "Test Description"
+        mock_task_orm.project_name = "specific-project"
+        mock_task_orm.status = TaskStatus.OPEN
+        mock_task_orm.created_at = datetime.now(UTC)
+        mock_task_orm.updated_at = datetime.now(UTC)
+
+        # Mock count query result
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 1
+
+        # Mock task query result
+        mock_task_result = MagicMock()
+        mock_task_result.scalars.return_value.all.return_value = [mock_task_orm]
+
+        mock_session.execute.side_effect = [mock_count_result, mock_task_result]
+
+        # Setup filter with project filter
+        filter_criteria = TaskListFilter(
+            project_filter="specific-project", sort_by="updated_at", sort_order="desc"
+        )
+
+        # Execute
+        result = await task_repository.list_tasks(filter_criteria, page=1, page_size=10)
+
+        # Verify
+        assert isinstance(result, TaskListResult)
+        assert len(result.tasks) == 1
+        assert result.tasks[0]["project_name"] == "specific-project"
+        assert isinstance(result.pagination, PaginationInfo)
+        assert result.pagination.total_count == 1
+
+        # Verify that the session was called twice (count query and task query)
+        assert mock_session.execute.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_list_tasks_with_combined_filters(
+        self, task_repository, mock_session
+    ):
+        """Test listing tasks with both status and project filters."""
+        # Setup mock
+        mock_task_orm = MagicMock()
+        mock_task_orm.id = 1
+        mock_task_orm.title = "Test Task"
+        mock_task_orm.description = "Test Description"
+        mock_task_orm.project_name = "specific-project"
+        mock_task_orm.status = TaskStatus.CLOSED
+        mock_task_orm.created_at = datetime.now(UTC)
+        mock_task_orm.updated_at = datetime.now(UTC)
+
+        # Mock count query result
+        mock_count_result = MagicMock()
+        mock_count_result.scalar.return_value = 1
+
+        # Mock task query result
+        mock_task_result = MagicMock()
+        mock_task_result.scalars.return_value.all.return_value = [mock_task_orm]
+
+        mock_session.execute.side_effect = [mock_count_result, mock_task_result]
+
+        # Setup filter with both filters
+        filter_criteria = TaskListFilter(
+            status_filter=TaskStatus.CLOSED,
+            project_filter="specific-project",
+            sort_by="updated_at",
+            sort_order="desc",
+        )
+
+        # Execute
+        result = await task_repository.list_tasks(filter_criteria, page=1, page_size=10)
+
+        # Verify
+        assert isinstance(result, TaskListResult)
+        assert len(result.tasks) == 1
+        assert result.tasks[0]["project_name"] == "specific-project"
+        assert result.tasks[0]["status"] == TaskStatus.CLOSED
+        assert isinstance(result.pagination, PaginationInfo)
+        assert result.pagination.total_count == 1
+
+        # Verify that the session was called twice (count query and task query)
+        assert mock_session.execute.call_count == 2
 
     @pytest.mark.asyncio
     async def test_update_status_success(self, task_repository, mock_session):

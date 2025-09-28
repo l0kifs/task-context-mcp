@@ -177,6 +177,7 @@ class TaskService(TaskServiceInterface):
     async def list_tasks(
         self,
         status_filter: str | None = None,
+        project_filter: str | None = None,
         page: int = 1,
         page_size: int = 10,
         sort_by: str = "updated_at",
@@ -187,6 +188,7 @@ class TaskService(TaskServiceInterface):
 
         Args:
             status_filter: Filter by status ("open", "completed", or None for all)
+            project_filter: Filter by project name (None for all projects)
             page: Page number (1-based)
             page_size: Number of tasks per page
             sort_by: Sort field ("created_at", "updated_at", "title")
@@ -196,11 +198,18 @@ class TaskService(TaskServiceInterface):
             TaskListResult with tasks and pagination info
         """
         logger.debug(
-            "Listing tasks", status_filter=status_filter, page=page, page_size=page_size
+            "Listing tasks",
+            status_filter=status_filter,
+            project_filter=project_filter,
+            page=page,
+            page_size=page_size,
         )
 
         filter_criteria = TaskListFilter(
-            status_filter=status_filter, sort_by=sort_by, sort_order=sort_order
+            status_filter=status_filter,
+            project_filter=project_filter,
+            sort_by=sort_by,
+            sort_order=sort_order,
         )
 
         result = await self._task_repo.list_tasks(filter_criteria, page, page_size)

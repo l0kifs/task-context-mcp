@@ -96,3 +96,89 @@ class TestTaskRepositoryIntegration:
         # Verify deletion
         task = await integration_task_service.get_task(task_id)
         assert task is None
+
+    async def test_list_tasks_with_project_filter_integration(
+        self, integration_task_service
+    ):
+        """Test project filtering with real database through full service stack."""
+        # Create tasks in different projects
+        project_a_tasks = []
+        project_b_tasks = []
+
+        # Create multiple tasks in project-a
+        for i in range(3):
+            task_id = await integration_task_service.create_task(
+                f"Project A Task {i}",
+                f"Description for project A task {i}",
+                project_name="project-a",
+            )
+            project_a_tasks.append(task_id)
+
+        # Create multiple tasks in project-b
+        for i in range(2):
+            task_id = await integration_task_service.create_task(
+                f"Project B Task {i}",
+                f"Description for project B task {i}",
+                project_name="project-b",
+            )
+            project_b_tasks.append(task_id)
+
+        # Test filtering by project-a
+        result = await integration_task_service.list_tasks(project_filter="project-a")
+
+        assert result is not None
+        assert len(result.tasks) == 3
+
+        # Verify all returned tasks are from project-a
+        for task in result.tasks:
+            assert task["project_name"] == "project-a"
+            assert task["id"] in project_a_tasks
+
+        # Test filtering by project-b
+        result = await integration_task_service.list_tasks(project_filter="project-b")
+
+        assert result is not None
+        assert len(result.tasks) == 2
+
+        # Verify all returned tasks are from project-b
+        for task in result.tasks:
+            assert task["project_name"] == "project-b"
+            assert task["id"] in project_b_tasks
+
+        # Test with non-existent project
+        result = await integration_task_service.list_tasks(
+            project_filter="non-existent-project"
+        )
+
+        assert result is not None
+        assert len(result.tasks) == 0
+
+        # Test combined filtering (project + status)
+        # First update one project-a task to closed
+        await integration_task_service.update_task_status(
+            project_a_tasks[0], TaskStatus.CLOSED
+        )
+
+        # Filter by project-a and open status
+        result = await integration_task_service.list_tasks(
+            project_filter="project-a", status_filter=TaskStatus.OPEN
+        )
+
+        assert result is not None
+        assert len(result.tasks) == 2  # 2 open tasks in project-a
+
+        for task in result.tasks:
+            assert task["project_name"] == "project-a"
+            assert task["status"] == TaskStatus.OPEN
+            assert task["id"] in project_a_tasks[1:]  # Exclude the closed one
+
+        # Filter by project-a and closed status
+        result = await integration_task_service.list_tasks(
+            project_filter="project-a", status_filter=TaskStatus.CLOSED
+        )
+
+        assert result is not None
+        assert len(result.tasks) == 1
+        assert result.tasks[0]["project_name"] == "project-a"
+        assert result.tasks[0]["status"] == TaskStatus.CLOSED
+        assert result.tasks[0]["id"] == project_a_tasks[0]

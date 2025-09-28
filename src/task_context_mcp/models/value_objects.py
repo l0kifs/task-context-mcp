@@ -30,6 +30,7 @@ class TaskListFilter(BaseModel):
     """
 
     status_filter: str | None = None
+    project_filter: str | None = None
     sort_by: str = "updated_at"
     sort_order: str = "desc"
 
@@ -41,6 +42,15 @@ class TaskListFilter(BaseModel):
             msg = f"Invalid status filter: {v}"
             raise ValueError(msg)
         return v
+
+    @field_validator("project_filter")
+    @classmethod
+    def validate_project_filter(cls, v: str | None) -> str | None:
+        """Validate project filter."""
+        if v is not None and not v.strip():
+            msg = "Project filter cannot be empty"
+            raise ValueError(msg)
+        return v.strip() if v else None
 
     @field_validator("sort_by")
     @classmethod

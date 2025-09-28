@@ -285,6 +285,81 @@ class TestMCPServerE2E:
             assert "List Task 2" in task_titles
 
     @pytest.mark.asyncio
+    async def test_list_tasks_with_project_filter(self, mcp_server_url: str) -> None:
+        """Test listing tasks with project filter."""
+        async with Client(mcp_server_url) as client:
+            # Create tasks in different projects
+            project_a_tasks = []
+            project_b_tasks = []
+
+            # Create tasks in project-a
+            for i in range(2):
+                result = await client.call_tool(
+                    "create_task",
+                    {
+                        "title": f"Project A Task {i}",
+                        "description": f"Task {i} in project A",
+                        "project_name": "project-a",
+                    },
+                )
+                result_data = json.loads(result.content[0].text)
+                project_a_tasks.append(result_data["task_id"])
+
+            # Create tasks in project-b
+            for i in range(2):
+                result = await client.call_tool(
+                    "create_task",
+                    {
+                        "title": f"Project B Task {i}",
+                        "description": f"Task {i} in project B",
+                        "project_name": "project-b",
+                    },
+                )
+                result_data = json.loads(result.content[0].text)
+                project_b_tasks.append(result_data["task_id"])
+
+            # Test filtering by project-a
+            list_result = await client.call_tool(
+                "list_tasks", {"project_filter": "project-a"}
+            )
+            list_data = json.loads(list_result.content[0].text)
+
+            assert list_data["success"] is True
+            assert "tasks" in list_data
+
+            # Verify only project-a tasks are returned
+            task_ids = [task["id"] for task in list_data["tasks"]]
+            task_projects = [task["project_name"] for task in list_data["tasks"]]
+
+            for task_id in project_a_tasks:
+                assert task_id in task_ids
+            for task_id in project_b_tasks:
+                assert task_id not in task_ids
+
+            # All returned tasks should be from project-a
+            for project in task_projects:
+                assert project == "project-a"
+
+            # Test filtering by project-b
+            list_result = await client.call_tool(
+                "list_tasks", {"project_filter": "project-b"}
+            )
+            list_data = json.loads(list_result.content[0].text)
+
+            assert list_data["success"] is True
+            task_ids = [task["id"] for task in list_data["tasks"]]
+            task_projects = [task["project_name"] for task in list_data["tasks"]]
+
+            for task_id in project_b_tasks:
+                assert task_id in task_ids
+            for task_id in project_a_tasks:
+                assert task_id not in task_ids
+
+            # All returned tasks should be from project-b
+            for project in task_projects:
+                assert project == "project-b"
+
+    @pytest.mark.asyncio
     async def test_update_task_status(self, mcp_server_url: str) -> None:
         """Test updating task status."""
         async with Client(mcp_server_url) as client:
@@ -350,65 +425,6 @@ class TestMCPServerE2E:
             assert (
                 task_data["task"]["project_name"] == "update-test"
             )  # Should remain unchanged
-
-    @pytest.mark.asyncio
-    async def test_get_tasks_by_project(self, mcp_server_url: str) -> None:
-        """Test getting tasks by project."""
-        async with Client(mcp_server_url) as client:
-            # Create tasks in different projects
-            project_a_tasks = []
-            project_b_tasks = []
-
-            for i in range(2):
-                result_a = await client.call_tool(
-                    "create_task",
-                    {
-                        "title": f"Project A Task {i}",
-                        "description": "Task in project A",
-                        "project_name": "project-a",
-                    },
-                )
-                result_a_data = json.loads(result_a.content[0].text)
-                project_a_tasks.append(result_a_data["task_id"])
-
-                result_b = await client.call_tool(
-                    "create_task",
-                    {
-                        "title": f"Project B Task {i}",
-                        "description": "Task in project B",
-                        "project_name": "project-b",
-                    },
-                )
-                result_b_data = json.loads(result_b.content[0].text)
-                project_b_tasks.append(result_b_data["task_id"])
-
-            # Get tasks by project A
-            project_a_result = await client.call_tool(
-                "get_tasks_by_project", {"project_name": "project-a"}
-            )
-            project_a_data = json.loads(project_a_result.content[0].text)
-
-            assert project_a_data["success"] is True
-            assert "tasks" in project_a_data
-            assert len(project_a_data["tasks"]) >= 2
-
-            # Verify all tasks are from project A
-            for task in project_a_data["tasks"]:
-                assert task["project_name"] == "project-a"
-
-            # Get tasks by project B
-            project_b_result = await client.call_tool(
-                "get_tasks_by_project", {"project_name": "project-b"}
-            )
-            project_b_data = json.loads(project_b_result.content[0].text)
-
-            assert project_b_data["success"] is True
-            assert "tasks" in project_b_data
-            assert len(project_b_data["tasks"]) >= 2
-
-            # Verify all tasks are from project B
-            for task in project_b_data["tasks"]:
-                assert task["project_name"] == "project-b"
 
     @pytest.mark.asyncio
     async def test_delete_task(self, mcp_server_url: str) -> None:

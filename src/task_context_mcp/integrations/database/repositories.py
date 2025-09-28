@@ -195,7 +195,8 @@ class TaskRepositoryImpl(TaskRepository):
             "Listing tasks",
             page=page,
             page_size=page_size,
-            filter=filter_criteria.status_filter,
+            status_filter=filter_criteria.status_filter,
+            project_filter=filter_criteria.project_filter,
         )
 
         # Build base query
@@ -205,11 +206,19 @@ class TaskRepositoryImpl(TaskRepository):
         if filter_criteria.status_filter:
             query = query.where(TaskORM.status == filter_criteria.status_filter)
 
+        # Apply project filter
+        if filter_criteria.project_filter:
+            query = query.where(TaskORM.project_name == filter_criteria.project_filter)
+
         # Get total count
         count_query = select(func.count(TaskORM.id))
         if filter_criteria.status_filter:
             count_query = count_query.where(
                 TaskORM.status == filter_criteria.status_filter
+            )
+        if filter_criteria.project_filter:
+            count_query = count_query.where(
+                TaskORM.project_name == filter_criteria.project_filter
             )
 
         total_count_result = await self._session.execute(count_query)

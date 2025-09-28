@@ -45,7 +45,10 @@ mcp = FastMCP(name="Task Context Server")
 
 @mcp.tool()
 async def create_task(
-    title: str, description: str | None = None, project_name: str = "default", steps: list[dict] | None = None
+    title: str,
+    description: str | None = None,
+    project_name: str = "default",
+    steps: list[dict] | None = None,
 ) -> dict[str, Any]:
     """
     Creates a new task and returns its ID.
@@ -216,6 +219,7 @@ async def get_task_context(task_id: int) -> dict[str, Any]:
 @mcp.tool()
 async def list_tasks(
     status_filter: str | None = None,
+    project_filter: str | None = None,
     page: int = 1,
     page_size: int = 10,
     sort_by: str = "updated_at",
@@ -224,11 +228,12 @@ async def list_tasks(
     """
     Returns a list of user tasks with filtering and pagination.
 
-    Allows an agent to view existing tasks, filter them by status, and sort
-    them for efficient workflow management.
+    Allows an agent to view existing tasks, filter them by status and project,
+    and sort them for efficient workflow management.
 
     Args:
         status_filter: Status filter ("open", "completed", or None for all)
+        project_filter: Project filter (project name or None for all projects)
         page: Page number (default: 1)
         page_size: Page size (default: 10, max: 100)
         sort_by: Field to sort by ("created_at", "updated_at", "title")
@@ -256,6 +261,7 @@ async def list_tasks(
     try:
         result = await task_service.list_tasks(
             status_filter=status_filter,
+            project_filter=project_filter,
             page=page,
             page_size=page_size,
             sort_by=sort_by,
@@ -486,69 +492,6 @@ async def update_task(
         return {"success": False, "error": f"Validation error: {e!s}"}
     except Exception as e:
         return {"success": False, "error": f"Error updating task: {e!s}"}
-
-
-@mcp.tool()
-async def get_tasks_by_project(
-    project_name: str, status: str | None = None
-) -> dict[str, Any]:
-    """
-    Returns all tasks for a specific project with optional status filtering.
-
-    Provides project-specific task listing for focused workflow management
-    within individual projects or repositories.
-
-    Args:
-        project_name: Project name (required)
-        status: Status filter ("open", "in_progress", "closed") (optional)
-
-    Returns:
-        Dict with the operation result:
-            On success (success=True):
-            - success: True when retrieval succeeds
-            - tasks: List of tasks in the project
-            On failure (success=False):
-            - success: False on error
-            - error: Error description
-    """
-    if not task_service:
-        return {"success": False, "error": "Service not initialized"}
-
-    try:
-        # Use existing list_tasks but filter by project_name
-        result = await task_service.list_tasks(
-            status_filter=status,
-            page=1,
-            page_size=100,  # Max allowed page size
-            sort_by="updated_at",
-            sort_order="desc",
-        )
-
-        # Filter tasks by project_name
-        project_tasks = [
-            task for task in result.tasks if task["project_name"] == project_name
-        ]
-
-        # Convert to required format
-        tasks_data = []
-        for task in project_tasks:
-            task_dict = {
-                "task_id": task["id"],
-                "title": task["title"],
-                "description": task["description"],
-                "project_name": task["project_name"],
-                "status": task["status"],
-                "created_at": task["created_at"].isoformat(),
-                "updated_at": task["updated_at"].isoformat(),
-            }
-            tasks_data.append(task_dict)
-
-        return {
-            "success": True,
-            "tasks": tasks_data,
-        }
-    except Exception as e:
-        return {"success": False, "error": f"Error retrieving tasks: {e!s}"}
 
 
 async def main():
