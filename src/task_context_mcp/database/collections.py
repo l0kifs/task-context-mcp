@@ -1,7 +1,8 @@
 """Collection management for ChromaDB."""
 
-from chromadb import Collection
+from chromadb import Collection, EmbeddingFunction
 from loguru import logger
+from typing import cast
 
 from .client import get_client
 
@@ -10,12 +11,41 @@ TASK_CATALOG_COLLECTION = "task_catalog"
 ARTIFACTS_COLLECTION = "artifacts"
 
 
-def get_or_create_collection(name: str, metadata: dict | None = None) -> Collection:
+class SimpleEmbeddingFunction(EmbeddingFunction):
+    """Simple embedding function that doesn't require network access."""
+    
+    def __init__(self):
+        """Initialize the embedding function."""
+        super().__init__()
+    
+    def __call__(self, input: list[str]) -> list[list[float]]:
+        """Generate simple embeddings (384 dimensions of zeros).
+        
+        This is used for collections that don't need semantic search
+        like task_catalog which is primarily for metadata storage.
+        """
+        return [[0.0] * 384 for _ in input]
+    
+    def name(self) -> str:
+        """Return the name of this embedding function."""
+        return "simple"
+    
+    def get_config(self) -> dict:
+        """Return configuration for this embedding function."""
+        return {"name": "simple", "dimension": 384}
+
+
+# Use simple embedding function to avoid network calls
+_default_ef = SimpleEmbeddingFunction()
+
+
+def get_or_create_collection(name: str, metadata: dict | None = None, embedding_function=None) -> Collection:
     """Get or create a ChromaDB collection.
     
     Args:
         name: Collection name
         metadata: Optional metadata for the collection
+        embedding_function: Optional embedding function (uses default if None)
         
     Returns:
         ChromaDB collection instance
@@ -23,7 +53,7 @@ def get_or_create_collection(name: str, metadata: dict | None = None) -> Collect
     client = get_client()
     
     try:
-        collection = client.get_collection(name=name)
+        collection = client.get_collection(name=name, embedding_function=embedding_function or _default_ef)
         logger.debug(f"Retrieved existing collection: {name}")
     except Exception:
         # ChromaDB requires non-empty metadata, provide default if None
@@ -32,6 +62,7 @@ def get_or_create_collection(name: str, metadata: dict | None = None) -> Collect
         collection = client.create_collection(
             name=name,
             metadata=metadata,
+            embedding_function=embedding_function or _default_ef,
         )
         logger.info(f"Created new collection: {name}")
     

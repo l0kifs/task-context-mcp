@@ -1,10 +1,15 @@
 """ChromaDB client singleton for embedded mode."""
 
+import os
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from loguru import logger
 
 from ..config.settings import get_settings
+
+# Disable ChromaDB telemetry globally
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY_IMPL"] = "chromadb.telemetry.product.posthog.NullPosthog"
 
 _client: chromadb.ClientAPI | None = None
 
@@ -26,6 +31,7 @@ def get_client() -> chromadb.ClientAPI:
             settings=ChromaSettings(
                 anonymized_telemetry=False,
                 allow_reset=True,
+                is_persistent=True,
             ),
         )
         

@@ -37,6 +37,8 @@ def test_settings(temp_db_path, monkeypatch):
     """Override settings for testing."""
     monkeypatch.setenv("TASK_CONTEXT_MCP__DB_PATH", temp_db_path)
     monkeypatch.setenv("TASK_CONTEXT_MCP__LOGGING_LEVEL", "ERROR")
+    # Disable ChromaDB telemetry to avoid network calls
+    monkeypatch.setenv("CHROMA_TELEMETRY", "false")
     from task_context_mcp.config.settings import Settings
     return Settings()
 
