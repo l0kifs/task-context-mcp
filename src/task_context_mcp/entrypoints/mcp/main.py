@@ -13,30 +13,38 @@ from task_context_mcp.integrations.database.repositories import (
     StepRepositoryImpl,
     TaskRepositoryImpl,
 )
+from task_context_mcp.models.value_objects import TaskListParams
 
-# Global variables for dependency injection
-db_manager: DatabaseManager | None = None
-task_service: TaskService | None = None
+
+class DependencyContainer:
+    """Container for application dependencies."""
+
+    def __init__(self) -> None:
+        """Initialize empty container."""
+        self.db_manager: DatabaseManager | None = None
+        self.task_service: TaskService | None = None
+
+
+# Dependency container instance
+_dependencies = DependencyContainer()
 
 
 async def initialize_dependencies() -> None:
     """Initialize all dependencies for the MCP server."""
-    global db_manager, task_service
-
     # Set up logging
     setup_logging()
 
     # Initialize database
-    db_manager = DatabaseManager()
-    await db_manager.initialize()
+    _dependencies.db_manager = DatabaseManager()
+    await _dependencies.db_manager.initialize()
 
     # Create repositories
-    session = db_manager.get_session()
+    session = _dependencies.db_manager.get_session()
     task_repo = TaskRepositoryImpl(session)
     step_repo = StepRepositoryImpl(session)
 
     # Create services
-    task_service = TaskService(task_repo, step_repo)
+    _dependencies.task_service = TaskService(task_repo, step_repo)
 
 
 # Initialize MCP server
@@ -60,7 +68,8 @@ async def create_task(
         title: Task title (required, 1-255 characters)
         description: Task description (optional, up to 1000 characters)
         project_name: Project name (required, 1-255 characters, default: "default")
-        steps: List of steps to create with the task (optional). Each step dict contains:
+        steps: List of steps to create with the task (optional).
+            Each step dict contains:
             - name: Step name (required)
             - description: Step description (optional)
 
@@ -71,23 +80,23 @@ async def create_task(
             - message: Description of the result
             - error: Error description (only when success=False)
     """
-    if not task_service:
+    if not _dependencies.task_service:
         return {"success": False, "error": "Service not initialized"}
 
     try:
-        task_id = await task_service.create_task(
+        task_id = await _dependencies.task_service.create_task(
             title=title, description=description, project_name=project_name, steps=steps
         )
-
+    except ValueError as e:
+        return {"success": False, "error": f"Validation error: {e!s}"}
+    except RuntimeError as e:
+        return {"success": False, "error": f"Error creating task: {e!s}"}
+    else:
         return {
             "success": True,
             "task_id": task_id,
             "message": f"Task '{title}' created with ID {task_id}",
         }
-    except ValueError as e:
-        return {"success": False, "error": f"Validation error: {e!s}"}
-    except Exception as e:
-        return {"success": False, "error": f"Error creating task: {e!s}"}
 
 
 @mcp.tool()
@@ -108,24 +117,24 @@ async def create_task_steps(task_id: int, steps: list[dict]) -> dict[str, Any]:
             - message: Description of the result
             - error: Error description (only when success=False)
     """
-    if not task_service:
+    if not _dependencies.task_service:
         return {"success": False, "error": "Service not initialized"}
 
     try:
-        success = await task_service.create_task_steps(
+        success = await _dependencies.task_service.create_task_steps(
             task_id=task_id, steps_data=steps
         )
-
+    except ValueError as e:
+        return {"success": False, "error": f"Validation error: {e!s}"}
+    except RuntimeError as e:
+        return {"success": False, "error": f"Error creating steps: {e!s}"}
+    else:
         if success:
             return {
                 "success": True,
                 "message": f"Created {len(steps)} steps for task {task_id}",
             }
         return {"success": False, "error": f"Task with ID {task_id} not found"}
-    except ValueError as e:
-        return {"success": False, "error": f"Validation error: {e!s}"}
-    except Exception as e:
-        return {"success": False, "error": f"Error creating steps: {e!s}"}
 
 
 @mcp.tool()
@@ -146,24 +155,25 @@ async def update_task_steps(task_id: int, step_updates: list[dict]) -> dict[str,
             - message: Description of the result
             - error: Error description (only when success=False)
     """
-    if not task_service:
+    if not _dependencies.task_service:
         return {"success": False, "error": "Service not initialized"}
 
     try:
-        success = await task_service.update_task_steps(
+        success = await _dependencies.task_service.update_task_steps(
             task_id=task_id, step_updates=step_updates
         )
 
+    except ValueError as e:
+        return {"success": False, "error": f"Validation error: {e!s}"}
+    except RuntimeError as e:
+        return {"success": False, "error": f"Error updating steps: {e!s}"}
+    else:
         if success:
             return {
                 "success": True,
                 "message": f"Updated {len(step_updates)} steps for task {task_id}",
             }
         return {"success": False, "error": f"Task with ID {task_id} not found"}
-    except ValueError as e:
-        return {"success": False, "error": f"Validation error: {e!s}"}
-    except Exception as e:
-        return {"success": False, "error": f"Error updating steps: {e!s}"}
 
 
 @mcp.tool()
@@ -192,12 +202,14 @@ async def get_task_context(task_id: int) -> dict[str, Any]:
             - success: False on error
             - error: Error description
     """
-    if not task_service:
+    if not _dependencies.task_service:
         return {"success": False, "error": "Service not initialized"}
 
     try:
-        context = await task_service.get_task_context(task_id)
-
+        context = await _dependencies.task_service.get_task_context(task_id)
+    except RuntimeError as e:
+        return {"success": False, "error": f"Error retrieving context: {e!s}"}
+    else:
         if context:
             return {
                 "success": True,
@@ -212,12 +224,10 @@ async def get_task_context(task_id: int) -> dict[str, Any]:
                 },
             }
         return {"success": False, "error": f"Task with ID {task_id} not found"}
-    except Exception as e:
-        return {"success": False, "error": f"Error retrieving context: {e!s}"}
 
 
 @mcp.tool()
-async def list_tasks(
+async def list_tasks(  # noqa: PLR0913 - MCP tool requires explicit params
     status_filter: str | None = None,
     project_filter: str | None = None,
     page: int = 1,
@@ -255,11 +265,11 @@ async def list_tasks(
             - success: False on error
             - error: Error description
     """
-    if not task_service:
+    if not _dependencies.task_service:
         return {"success": False, "error": "Service not initialized"}
 
     try:
-        result = await task_service.list_tasks(
+        params = TaskListParams(
             status_filter=status_filter,
             project_filter=project_filter,
             page=page,
@@ -267,6 +277,7 @@ async def list_tasks(
             sort_by=sort_by,
             sort_order=sort_order,
         )
+        result = await _dependencies.task_service.list_tasks(params)
 
         # Convert the result to a dictionary
         tasks_data = []
@@ -282,6 +293,9 @@ async def list_tasks(
             }
             tasks_data.append(task_dict)
 
+    except RuntimeError as e:
+        return {"success": False, "error": f"Error retrieving task list: {e!s}"}
+    else:
         return {
             "success": True,
             "tasks": tasks_data,
@@ -294,8 +308,6 @@ async def list_tasks(
                 "has_prev": result.pagination.has_prev,
             },
         }
-    except Exception as e:
-        return {"success": False, "error": f"Error retrieving task list: {e!s}"}
 
 
 @mcp.tool()
@@ -319,22 +331,22 @@ async def update_task_status(task_id: int, status: str) -> dict[str, Any]:
             - success: False on error
             - error: Error description
     """
-    if not task_service:
+    if not _dependencies.task_service:
         return {"success": False, "error": "Service not initialized"}
 
     try:
-        success = await task_service.update_task_status(task_id, status)
-
+        success = await _dependencies.task_service.update_task_status(task_id, status)
+    except ValueError as e:
+        return {"success": False, "error": f"Validation error: {e!s}"}
+    except RuntimeError as e:
+        return {"success": False, "error": f"Error updating status: {e!s}"}
+    else:
         if success:
             return {
                 "success": True,
                 "message": f"Status of task {task_id} changed to '{status}'",
             }
         return {"success": False, "error": f"Task with ID {task_id} not found"}
-    except ValueError as e:
-        return {"success": False, "error": f"Validation error: {e!s}"}
-    except Exception as e:
-        return {"success": False, "error": f"Error updating status: {e!s}"}
 
 
 @mcp.tool()
@@ -357,17 +369,17 @@ async def delete_task(task_id: int) -> dict[str, Any]:
             - success: False on error
             - error: Error description
     """
-    if not task_service:
+    if not _dependencies.task_service:
         return {"success": False, "error": "Service not initialized"}
 
     try:
-        success = await task_service.delete_task(task_id)
-
+        success = await _dependencies.task_service.delete_task(task_id)
+    except RuntimeError as e:
+        return {"success": False, "error": f"Error deleting task: {e!s}"}
+    else:
         if success:
             return {"success": True, "message": f"Task {task_id} deleted"}
         return {"success": False, "error": f"Task with ID {task_id} not found"}
-    except Exception as e:
-        return {"success": False, "error": f"Error deleting task: {e!s}"}
 
 
 @mcp.tool()
@@ -397,12 +409,14 @@ async def get_task(task_id: int) -> dict[str, Any]:
             - success: False on error
             - error: Error description
     """
-    if not task_service:
+    if not _dependencies.task_service:
         return {"success": False, "error": "Service not initialized"}
 
     try:
-        task_data = await task_service.get_task_with_steps(task_id)
-
+        task_data = await _dependencies.task_service.get_task_with_steps(task_id)
+    except RuntimeError as e:
+        return {"success": False, "error": f"Error retrieving task: {e!s}"}
+    else:
         if task_data:
             # Convert steps to the required format
             steps_data = []
@@ -433,8 +447,6 @@ async def get_task(task_id: int) -> dict[str, Any]:
                 },
             }
         return {"success": False, "error": f"Task with ID {task_id} not found"}
-    except Exception as e:
-        return {"success": False, "error": f"Error retrieving task: {e!s}"}
 
 
 @mcp.tool()
@@ -465,14 +477,18 @@ async def update_task(
             - success: False on error
             - error: Error description
     """
-    if not task_service:
+    if not _dependencies.task_service:
         return {"success": False, "error": "Service not initialized"}
 
     try:
-        success = await task_service.update_task(
+        success = await _dependencies.task_service.update_task(
             task_id=task_id, title=title, description=description, status=status
         )
-
+    except ValueError as e:
+        return {"success": False, "error": f"Validation error: {e!s}"}
+    except RuntimeError as e:
+        return {"success": False, "error": f"Error updating task: {e!s}"}
+    else:
         if success:
             updates = []
             if title:
@@ -488,10 +504,6 @@ async def update_task(
                 "message": f"Task {task_id} updated: {update_str}",
             }
         return {"success": False, "error": f"Task with ID {task_id} not found"}
-    except ValueError as e:
-        return {"success": False, "error": f"Validation error: {e!s}"}
-    except Exception as e:
-        return {"success": False, "error": f"Error updating task: {e!s}"}
 
 
 async def main():
@@ -512,13 +524,13 @@ async def main():
 
     except Exception:
         # Log error and re-raise
-        if db_manager:
-            await db_manager.close()
+        if _dependencies.db_manager:
+            await _dependencies.db_manager.close()
         raise
     finally:
         # Ensure database connections are closed
-        if db_manager:
-            await db_manager.close()
+        if _dependencies.db_manager:
+            await _dependencies.db_manager.close()
 
 
 def run():

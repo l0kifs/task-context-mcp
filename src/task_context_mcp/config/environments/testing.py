@@ -2,7 +2,7 @@
 
 from pydantic import Field, SecretStr
 
-from .base import BaseEnvironmentSettings
+from task_context_mcp.config.environments.base import BaseEnvironmentSettings
 
 
 class TestingSettings(BaseEnvironmentSettings):

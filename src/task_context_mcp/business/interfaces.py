@@ -6,6 +6,7 @@ from task_context_mcp.models.entities import Step, Task
 from task_context_mcp.models.value_objects import (
     TaskContext,
     TaskListFilter,
+    TaskListParams,
     TaskListResult,
 )
 
@@ -115,12 +116,7 @@ class TaskServiceInterface(Protocol):
 
     async def list_tasks(
         self,
-        status_filter: str | None = None,
-        project_filter: str | None = None,
-        page: int = 1,
-        page_size: int = 10,
-        sort_by: str = "updated_at",
-        sort_order: str = "desc",
+        params: TaskListParams,
     ) -> TaskListResult:
         """List tasks with filtering and pagination."""
         ...

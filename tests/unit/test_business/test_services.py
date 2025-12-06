@@ -11,6 +11,7 @@ from task_context_mcp.models.entities import TaskStatus
 from task_context_mcp.models.value_objects import (
     PaginationInfo,
     TaskListFilter,
+    TaskListParams,
     TaskListResult,
 )
 
@@ -256,7 +257,8 @@ async def test_list_tasks(task_service):
     task_id2 = await task_service.create_task("Task 2", project_name="test")
 
     # List tasks
-    result = await task_service.list_tasks()
+    params = TaskListParams()
+    result = await task_service.list_tasks(params)
 
     assert result.tasks is not None
     assert len(result.tasks) == EXPECTED_TASK_COUNT
@@ -354,19 +356,22 @@ async def test_list_tasks_with_status_filter(task_service):
     await task_service.update_task_status(task_id2, "closed")
 
     # Get only open tasks
-    result = await task_service.list_tasks(status_filter="open")
+    params = TaskListParams(status_filter="open")
+    result = await task_service.list_tasks(params)
     assert len(result.tasks) == 1
     assert result.tasks[0]["id"] == task_id1
     assert result.tasks[0]["status"] == TaskStatus.OPEN
 
     # Get only closed tasks
-    result = await task_service.list_tasks(status_filter="closed")
+    params = TaskListParams(status_filter="closed")
+    result = await task_service.list_tasks(params)
     assert len(result.tasks) == 1
     assert result.tasks[0]["id"] == task_id2
     assert result.tasks[0]["status"] == TaskStatus.CLOSED
 
     # Get all tasks
-    result = await task_service.list_tasks(status_filter=None)
+    params = TaskListParams(status_filter=None)
+    result = await task_service.list_tasks(params)
     assert len(result.tasks) == EXPECTED_TASK_COUNT
 
 
@@ -380,7 +385,8 @@ async def test_list_tasks_pagination(task_service):
         task_ids.append(task_id)
 
     # Get first page (2 tasks)
-    result = await task_service.list_tasks(page=1, page_size=EXPECTED_PAGE_SIZE)
+    params = TaskListParams(page=1, page_size=EXPECTED_PAGE_SIZE)
+    result = await task_service.list_tasks(params)
     assert len(result.tasks) == EXPECTED_PAGE_SIZE
     assert result.pagination.page == 1
     assert result.pagination.page_size == EXPECTED_PAGE_SIZE
@@ -390,18 +396,16 @@ async def test_list_tasks_pagination(task_service):
     assert result.pagination.has_prev is False
 
     # Get second page
-    result = await task_service.list_tasks(
-        page=EXPECTED_PAGE_TWO, page_size=EXPECTED_PAGE_SIZE
-    )
+    params = TaskListParams(page=EXPECTED_PAGE_TWO, page_size=EXPECTED_PAGE_SIZE)
+    result = await task_service.list_tasks(params)
     assert len(result.tasks) == EXPECTED_PAGE_SIZE
     assert result.pagination.page == EXPECTED_PAGE_TWO
     assert result.pagination.has_next is True
     assert result.pagination.has_prev is True
 
     # Get last page
-    result = await task_service.list_tasks(
-        page=EXPECTED_PAGE_THREE, page_size=EXPECTED_PAGE_SIZE
-    )
+    params = TaskListParams(page=EXPECTED_PAGE_THREE, page_size=EXPECTED_PAGE_SIZE)
+    result = await task_service.list_tasks(params)
     assert len(result.tasks) == 1
     assert result.pagination.page == EXPECTED_PAGE_THREE
     assert result.pagination.has_next is False
@@ -417,12 +421,14 @@ async def test_list_tasks_sorting(task_service):
     await task_service.create_task("C Task", project_name="test")
 
     # Sort by title ascending
-    result = await task_service.list_tasks(sort_by="title", sort_order="asc")
+    params = TaskListParams(sort_by="title", sort_order="asc")
+    result = await task_service.list_tasks(params)
     titles = [task["title"] for task in result.tasks]
     assert titles == ["A Task", "B Task", "C Task"]
 
     # Sort by title descending
-    result = await task_service.list_tasks(sort_by="title", sort_order="desc")
+    params = TaskListParams(sort_by="title", sort_order="desc")
+    result = await task_service.list_tasks(params)
     titles = [task["title"] for task in result.tasks]
     assert titles == ["C Task", "B Task", "A Task"]
 
@@ -452,7 +458,7 @@ async def test_list_tasks_service_creates_correct_filter():
     service = TaskService(mock_task_repo, mock_step_repo)
 
     # Test with project_filter
-    await service.list_tasks(
+    params = TaskListParams(
         status_filter="open",
         project_filter="test-project",
         page=1,
@@ -460,6 +466,7 @@ async def test_list_tasks_service_creates_correct_filter():
         sort_by="title",
         sort_order="asc",
     )
+    await service.list_tasks(params)
 
     # Verify that the repository was called with correct TaskListFilter
     mock_task_repo.list_tasks.assert_called_once()
@@ -503,7 +510,8 @@ async def test_list_tasks_service_handles_none_project_filter():
     service = TaskService(mock_task_repo, mock_step_repo)
 
     # Test with None project_filter
-    await service.list_tasks(project_filter=None)
+    params = TaskListParams(project_filter=None)
+    await service.list_tasks(params)
 
     # Verify that the repository was called with correct TaskListFilter
     mock_task_repo.list_tasks.assert_called_once()

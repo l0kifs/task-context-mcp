@@ -2,10 +2,10 @@
 
 import os
 
-from .environments.base import BaseEnvironmentSettings
-from .environments.development import DevelopmentSettings
-from .environments.production import ProductionSettings
-from .environments.testing import TestingSettings
+from task_context_mcp.config.environments.base import BaseEnvironmentSettings
+from task_context_mcp.config.environments.development import DevelopmentSettings
+from task_context_mcp.config.environments.production import ProductionSettings
+from task_context_mcp.config.environments.testing import TestingSettings
 
 
 def get_settings() -> BaseEnvironmentSettings:

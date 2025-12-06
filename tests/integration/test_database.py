@@ -1,6 +1,7 @@
 import pytest
 
 from src.task_context_mcp.models.entities import TaskStatus
+from src.task_context_mcp.models.value_objects import TaskListParams
 
 
 @pytest.mark.asyncio
@@ -59,7 +60,8 @@ class TestTaskRepositoryIntegration:
             )
             task_ids.append(task_id)
 
-        result = await integration_task_service.list_tasks()
+        params = TaskListParams()
+        result = await integration_task_service.list_tasks(params)
         tasks = result.tasks
         assert len(tasks) >= 3
 
@@ -124,7 +126,8 @@ class TestTaskRepositoryIntegration:
             project_b_tasks.append(task_id)
 
         # Test filtering by project-a
-        result = await integration_task_service.list_tasks(project_filter="project-a")
+        params = TaskListParams(project_filter="project-a")
+        result = await integration_task_service.list_tasks(params)
 
         assert result is not None
         assert len(result.tasks) == 3
@@ -135,7 +138,8 @@ class TestTaskRepositoryIntegration:
             assert task["id"] in project_a_tasks
 
         # Test filtering by project-b
-        result = await integration_task_service.list_tasks(project_filter="project-b")
+        params = TaskListParams(project_filter="project-b")
+        result = await integration_task_service.list_tasks(params)
 
         assert result is not None
         assert len(result.tasks) == 2
@@ -146,9 +150,8 @@ class TestTaskRepositoryIntegration:
             assert task["id"] in project_b_tasks
 
         # Test with non-existent project
-        result = await integration_task_service.list_tasks(
-            project_filter="non-existent-project"
-        )
+        params = TaskListParams(project_filter="non-existent-project")
+        result = await integration_task_service.list_tasks(params)
 
         assert result is not None
         assert len(result.tasks) == 0
@@ -160,9 +163,10 @@ class TestTaskRepositoryIntegration:
         )
 
         # Filter by project-a and open status
-        result = await integration_task_service.list_tasks(
+        params = TaskListParams(
             project_filter="project-a", status_filter=TaskStatus.OPEN
         )
+        result = await integration_task_service.list_tasks(params)
 
         assert result is not None
         assert len(result.tasks) == 2  # 2 open tasks in project-a
@@ -173,9 +177,10 @@ class TestTaskRepositoryIntegration:
             assert task["id"] in project_a_tasks[1:]  # Exclude the closed one
 
         # Filter by project-a and closed status
-        result = await integration_task_service.list_tasks(
+        params = TaskListParams(
             project_filter="project-a", status_filter=TaskStatus.CLOSED
         )
+        result = await integration_task_service.list_tasks(params)
 
         assert result is not None
         assert len(result.tasks) == 1

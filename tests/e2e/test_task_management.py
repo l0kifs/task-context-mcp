@@ -8,6 +8,7 @@ from task_context_mcp.integrations.database.repositories import (
     TaskRepositoryImpl,
 )
 from task_context_mcp.models.entities import TaskStatus
+from task_context_mcp.models.value_objects import TaskListParams
 
 # Test constants
 TASK_COUNT = 5
@@ -102,18 +103,22 @@ class TestTaskManagementE2E:
                 await service.update_task_status(task_id, "closed")
 
         # Test listing all tasks
-        all_tasks = await service.list_tasks()
+        params = TaskListParams()
+        all_tasks = await service.list_tasks(params)
         assert len(all_tasks.tasks) == TASK_COUNT
 
         # Test filtering by status
-        open_tasks = await service.list_tasks(status_filter="open")
+        params = TaskListParams(status_filter="open")
+        open_tasks = await service.list_tasks(params)
         assert len(open_tasks.tasks) == OPEN_TASK_COUNT
 
-        closed_tasks = await service.list_tasks(status_filter="closed")
+        params = TaskListParams(status_filter="closed")
+        closed_tasks = await service.list_tasks(params)
         assert len(closed_tasks.tasks) == COMPLETED_TASK_COUNT
 
         # Test pagination
-        paginated = await service.list_tasks(page=1, page_size=PAGE_SIZE)
+        params = TaskListParams(page=1, page_size=PAGE_SIZE)
+        paginated = await service.list_tasks(params)
         assert len(paginated.tasks) == PAGE_SIZE
         assert paginated.pagination.total_count == TASK_COUNT
 

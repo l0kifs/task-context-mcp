@@ -9,8 +9,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class DatabaseSettings:
     """Database configuration settings."""
 
-    def __init__(self, url: SecretStr, echo: bool):
-        """Initialize database settings."""
+    def __init__(self, url: SecretStr, *, echo: bool = False):
+        """Initialize database settings.
+
+        Args:
+            url: Database connection URL
+            echo: Whether to echo SQL statements (keyword-only)
+        """
         self.url = url
         self.echo = echo
 

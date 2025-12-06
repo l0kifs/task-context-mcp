@@ -17,6 +17,7 @@ from task_context_mcp.models.entities import (
 from task_context_mcp.models.value_objects import (
     TaskContext,
     TaskListFilter,
+    TaskListParams,
     TaskListResult,
 )
 
@@ -60,7 +61,8 @@ class TaskService(TaskServiceInterface):
             title: Task title (required, non-empty)
             description: Optional task description
             project_name: Project name (required, non-empty)
-            steps: Optional list of steps to create with the task. Each step dict contains:
+            steps: Optional list of steps to create with the task.
+                Each step dict contains:
                 - name: Step name (required)
                 - description: Step description (optional)
 
@@ -176,43 +178,36 @@ class TaskService(TaskServiceInterface):
 
     async def list_tasks(
         self,
-        status_filter: str | None = None,
-        project_filter: str | None = None,
-        page: int = 1,
-        page_size: int = 10,
-        sort_by: str = "updated_at",
-        sort_order: str = "desc",
+        params: TaskListParams,
     ) -> TaskListResult:
         """
         List tasks with filtering and pagination.
 
         Args:
-            status_filter: Filter by status ("open", "completed", or None for all)
-            project_filter: Filter by project name (None for all projects)
-            page: Page number (1-based)
-            page_size: Number of tasks per page
-            sort_by: Sort field ("created_at", "updated_at", "title")
-            sort_order: Sort order ("asc" or "desc")
+            params: TaskListParams object containing filter, sort,
+                and pagination settings
 
         Returns:
             TaskListResult with tasks and pagination info
         """
         logger.debug(
             "Listing tasks",
-            status_filter=status_filter,
-            project_filter=project_filter,
-            page=page,
-            page_size=page_size,
+            status_filter=params.status_filter,
+            project_filter=params.project_filter,
+            page=params.page,
+            page_size=params.page_size,
         )
 
         filter_criteria = TaskListFilter(
-            status_filter=status_filter,
-            project_filter=project_filter,
-            sort_by=sort_by,
-            sort_order=sort_order,
+            status_filter=params.status_filter,
+            project_filter=params.project_filter,
+            sort_by=params.sort_by,
+            sort_order=params.sort_order,
         )
 
-        result = await self._task_repo.list_tasks(filter_criteria, page, page_size)
+        result = await self._task_repo.list_tasks(
+            filter_criteria, params.page, params.page_size
+        )
 
         logger.debug(
             "Tasks listed", count=len(result.tasks), total=result.pagination.total_count
