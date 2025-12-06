@@ -27,6 +27,17 @@ class Settings(BaseSettings):
         description="Console log format",
     )
 
+    # Database settings
+    db_path: str = Field(
+        default="./data/chromadb", description="ChromaDB storage directory"
+    )
+    embedding_model: str = Field(
+        default="all-MiniLM-L6-v2", description="Sentence transformer model name"
+    )
+    embedding_dimension: int = Field(
+        default=384, description="Vector embedding dimension"
+    )
+
 
 def get_settings() -> Settings:
     """Retrieve application settings"""
