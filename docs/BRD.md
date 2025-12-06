@@ -78,7 +78,7 @@ System is designed to be **task-agnostic** and extensible. Initial examples incl
 - Distributed/cluster deployment (phase 2)
 - Real-time collaboration between multiple agents
 - External system integrations (initially)
-- GUI/web interface (CLI/SDK only)
+- GUI/web interface (MCP server only)
 
 ---
 
@@ -90,31 +90,31 @@ System is designed to be **task-agnostic** and extensible. Initial examples incl
 **Priority:** Critical  
 **Description:** System shall maintain a catalog of all task types with associated metadata
 
-| Field | Type | Description |
-|-------|------|-------------|
-| task_type | VARCHAR(100) | Unique task identifier |
-| description | TEXT | Task purpose description |
-| created_at | TIMESTAMP | Creation timestamp |
-| updated_at | TIMESTAMP | Last update timestamp |
+| Field       | Type         | Description              |
+| ----------- | ------------ | ------------------------ |
+| task_type   | VARCHAR(100) | Unique task identifier   |
+| description | TEXT         | Task purpose description |
+| created_at  | TIMESTAMP    | Creation timestamp       |
+| updated_at  | TIMESTAMP    | Last update timestamp    |
 
 #### FR-2: Artifact Storage
 **Priority:** Critical  
 **Description:** System shall store all artifacts with versioning and embeddings
 
-| Field | Type | Description |
-|-------|------|-------------|
-| artifact_id | INT | Primary key |
-| task_type | VARCHAR(100) | Foreign key to task catalog |
-| artifact_type | ENUM | 'practice', 'rule', 'prompt', 'result' |
-| version | INT | Auto-incremented version number |
-| content | TEXT | Artifact content |
-| embedding | VECTOR(384) | Semantic embedding |
-| metadata | JSON | Additional metadata |
-| status | ENUM | 'active', 'deprecated', 'archived' |
-| deprecated_at | TIMESTAMP | When artifact was deprecated |
-| deprecated_reason | TEXT | Why artifact was deprecated |
-| replacement_id | INT | FK to replacement artifact (if exists) |
-| created_at | TIMESTAMP | Creation timestamp |
+| Field             | Type         | Description                            |
+| ----------------- | ------------ | -------------------------------------- |
+| artifact_id       | INT          | Primary key                            |
+| task_type         | VARCHAR(100) | Foreign key to task catalog            |
+| artifact_type     | ENUM         | 'practice', 'rule', 'prompt', 'result' |
+| version           | INT          | Auto-incremented version number        |
+| content           | TEXT         | Artifact content                       |
+| embedding         | VECTOR(384)  | Semantic embedding                     |
+| metadata          | JSON         | Additional metadata                    |
+| status            | ENUM         | 'active', 'deprecated', 'archived'     |
+| deprecated_at     | TIMESTAMP    | When artifact was deprecated           |
+| deprecated_reason | TEXT         | Why artifact was deprecated            |
+| replacement_id    | INT          | FK to replacement artifact (if exists) |
+| created_at        | TIMESTAMP    | Creation timestamp                     |
 
 ### 4.2 Core Operations
 
@@ -335,20 +335,9 @@ Proactively suggests:
 - **Database:** OceanBase SeekDB v1.0+ (embedded mode)
 - **Language:** Python 3.12+
 - **SDK:** pyseekdb
-- **Embedding:** Local models via sentence-transformers (all-MiniLM-L6-v2, 384 dimensions)
+- **Embedding:** DefaultEmbeddingFunction (384 dimensions) OR local models via sentence-transformers (all-MiniLM-L6-v2, 384 dimensions)
 - **LLM Access:** GitHub Copilot via VSCode API
-- **Interface:** Python API / CLI
-- **Development Environment:** VSCode with GitHub Copilot
-
-## 6. Technical Architecture
-
-### 6.1 Technology Stack
-- **Database:** OceanBase SeekDB v1.0+ (embedded mode)
-- **Language:** Python 3.12+
-- **SDK:** pyseekdb
-- **Embedding:** DefaultEmbeddingFunction (384 dimensions) OR local models via sentence-transformers
-- **LLM Access:** GitHub Copilot via VSCode API
-- **Interface:** Python API / CLI
+- **Interface:** MCP Server (Model Context Protocol via FastMCP)
 - **Development Environment:** VSCode with GitHub Copilot
 
 ### 6.2 AI Integration Strategy (No External API Keys Required)
@@ -440,12 +429,13 @@ class HybridAIAgent:
 ```
 
 ### 6.3 Integration Points
-- **Input:** User natural language queries
-- **Output:** Task execution results + updated artifacts
+- **Input:** User natural language queries via MCP tools
+- **Output:** Task execution results + updated artifacts via MCP responses
 - **Storage:** Local SeekDB file (`./seekdb.db`)
 - **Backup:** Git repository (optional)
 - **AI Access:** GitHub Copilot API via VSCode extension
 - **Local Models:** sentence-transformers for embeddings (no API keys required)
+- **Protocol:** Model Context Protocol (MCP) via FastMCP for AI agent integration
 
 ---
 
@@ -472,18 +462,18 @@ class HybridAIAgent:
 - Performance tuning
 - Support for unlimited task types
 - Monitoring and logging
-- Task type management UI/CLI
+- Task type management via MCP tools
 
 ---
 
 ## 8. Risks and Mitigation
 
-| Risk | Impact | Probability | Mitigation |
-|------|--------|-------------|------------|
-| SeekDB stability issues (v1.0) | High | Medium | Keep Git backup, plan migration path |
-| Performance degradation with scale | Medium | Low | Monitor metrics, optimize queries early |
-| Complex version management logic | Medium | Medium | Start simple, iterate based on needs |
-| Agent hallucination in updates | High | Low | User approval for critical changes |
+| Risk                               | Impact | Probability | Mitigation                              |
+| ---------------------------------- | ------ | ----------- | --------------------------------------- |
+| SeekDB stability issues (v1.0)     | High   | Medium      | Keep Git backup, plan migration path    |
+| Performance degradation with scale | Medium | Low         | Monitor metrics, optimize queries early |
+| Complex version management logic   | Medium | Medium      | Start simple, iterate based on needs    |
+| Agent hallucination in updates     | High   | Low         | User approval for critical changes      |
 
 ---
 
