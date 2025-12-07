@@ -1,381 +1,285 @@
 # Task Context MCP Server
 
-MCP (Model Context Protocol) сервер для сохранения и восстановления контекста задач AI-агента. Позволяет агенту сохранять summary каждого шага задачи в базе данных и быстро восстанавливать контекст при переходе в новый чат.
+An MCP (Model Context Protocol) server for managing task contexts and artifacts to enable AI agents to autonomously manage and improve execution processes for repetitive task types.
 
-## Возможности
+## Overview
 
-- ✅ Создание и управление задачами
-- ✅ Сохранение summary для каждого шага задачи
-- ✅ Быстрое восстановление контекста задачи
-- ✅ Оптимизация summary для минимизации токенов
-- ✅ Асинхронная работа с базой данных SQLite
-- ✅ Полная совместимость с MCP протоколом
+**Important Distinction:** This system manages **task contexts** (reusable task types/categories), NOT individual task instances.
 
-## Установка и запуск
+For example:
+- **Task Context**: "Analyze applicant CV for Python developer of specific stack"
+- **NOT stored**: Individual applicant details or specific CV analyses
+- **Stored**: Reusable artifacts (practices, rules, prompts, learnings) applicable to ANY CV analysis of this type
 
-### Требования
+This MCP server provides a SQLite-based storage system that enables AI agents to:
 
-- Python 3.11+
-- uv (менеджер пакетов)
+- **Store and retrieve task contexts** with associated artifacts (practices, rules, prompts, learnings)
+- **Perform full-text search** across historical learnings and best practices using SQLite FTS5
+- **Manage artifact lifecycles** with active/archived status tracking
+- **Enable autonomous process improvement** with minimal user intervention
+- **Store multiple artifacts of each type** per task context
 
-### Установка
+## Features
 
-1. Клонируйте репозиторий:
+### Core Functionality
+- **Task Context Management**: Create, update, archive, and retrieve task contexts (reusable task types)
+- **Artifact Storage**: Store multiple practices, rules, prompts, and learnings for each task context
+- **Full-Text Search**: Efficient search across all artifacts using SQLite FTS5
+- **Lifecycle Management**: Track active vs archived artifacts with reasons
+- **Transaction Safety**: ACID compliance for all database operations
 
+### MCP Tools Available
+
+1. **`get_active_task_contexts`** - Get all currently active task contexts
+2. **`create_task_context`** - Create a new task context with summary and description
+3. **`get_artifacts_for_task_context`** - Retrieve all artifacts for a specific task context
+4. **`create_artifact`** - Create a new artifact (multiple per type allowed)
+5. **`update_artifact`** - Update an existing artifact's summary and/or content
+6. **`archive_artifact`** - Archive artifacts with optional reason
+7. **`search_artifacts`** - Full-text search across all artifacts
+
+## Installation
+
+### Prerequisites
+- Python 3.12+
+- uv package manager
+
+### Setup
 ```bash
-git clone <repository-url>
+# Clone the repository
+git clone https://github.com/l0kifs/task-context-mcp.git
 cd task-context-mcp
-```
 
-2. Установите зависимости:
-
-```bash
+# Install dependencies
 uv sync
-```
 
-3. Запустите сервер:
-
-```bash
-uv run python -m app.server
-```
-
-Сервер будет доступен по умолчанию на порту, который выберет FastMCP.
-
-## Использование
-
-### MCP Tools (Инструменты)
-
-Сервер предоставляет следующие инструменты для AI-агента:
-
-#### 1. `create_task`
-
-Создает новую задачу.
-
-**Параметры:**
-
-- `title` (str): Название задачи
-- `description` (str, optional): Описание задачи
-
-**Возвращает:**
-
-```json
-{
-  "success": true,
-  "task_id": 1,
-  "message": "Задача 'Создание MCP сервера' создана с ID 1"
-}
-```
-
-#### 2. `save_summary`
-
-Сохраняет summary для шага задачи.
-
-**Параметры:**
-
-- `task_id` (int): ID задачи
-- `step_number` (int): Номер шага
-- `summary` (str): Текст summary
-
-**Возвращает:**
-
-```json
-{
-  "success": true,
-  "message": "Summary для шага 1 задачи 1 сохранен"
-}
-```
-
-#### 3. `get_task_context`
-
-Возвращает оптимизированный контекст задачи.
-
-**Параметры:**
-
-- `task_id` (int): ID задачи
-
-**Возвращает:**
-
-```json
-{
-  "success": true,
-  "context": {
-    "task_id": 1,
-    "title": "Создание MCP сервера",
-    "description": "Разработка сервера для сохранения контекста",
-    "total_steps": 3,
-    "context_summary": "Шаг 1: Создание моделей БД\nШаг 2: Реализация сервиса\nШаг 3: Создание MCP сервера",
-    "last_updated": "2024-01-15T10:30:00"
-  }
-}
-```
-
-#### 4. `list_tasks`
-
-Возвращает список задач с фильтрацией и пагинацией.
-
-**Параметры (все опциональные):**
-
-- `status_filter` (str): Фильтр по статусу ("open", "completed", null для всех)
-- `page` (int): Номер страницы (по умолчанию: 1)
-- `page_size` (int): Размер страницы (по умолчанию: 10, максимум: 100)
-- `sort_by` (str): Поле сортировки ("created_at", "updated_at", "title", по умолчанию: "updated_at")
-- `sort_order` (str): Порядок сортировки ("asc", "desc", по умолчанию: "desc")
-
-**Возвращает:**
-
-```json
-{
-  "success": true,
-  "tasks": [
-    {
-      "id": 1,
-      "title": "Создание MCP сервера",
-      "description": "Разработка сервера для сохранения контекста",
-      "status": "open",
-      "created_at": "2024-01-15T09:00:00",
-      "updated_at": "2024-01-15T10:30:00"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "page_size": 10,
-    "total_count": 1,
-    "total_pages": 1,
-    "has_next": false,
-    "has_prev": false
-  }
-}
-```
-
-#### 5. `update_task_status`
-
-Обновляет статус задачи (открыта/завершена).
-
-**Параметры:**
-
-- `task_id` (int): ID задачи
-- `status` (str): Новый статус ("open" или "completed")
-
-**Возвращает:**
-
-```json
-{
-  "success": true,
-  "message": "Статус задачи 1 изменен на 'завершена'"
-}
-```
-
-#### 6. `delete_task`
-
-Удаляет задачу и все её summary.
-
-**Параметры:**
-
-- `task_id` (int): ID задачи
-
-**Возвращает:**
-
-```json
-{
-  "success": true,
-  "message": "Задача 1 удалена"
-}
-```
-
-### MCP Resources (Ресурсы)
-
-#### `agent://workflow_rules`
-
-Возвращает общие правила работы AI-агента с MCP инструментами:
-
-- Когда создавать новые задачи
-- Как правильно сохранять summary шагов  
-- Стратегии восстановления контекста
-- Принципы управления задачами
-- Рекомендации по оптимизации workflow
-
-#### `summary://compression_rules`
-
-Возвращает правила оптимизации summary для агента.
-
-## Структура базы данных
-
-### Таблица `tasks`
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| id | INTEGER | Первичный ключ |
-| title | VARCHAR(255) | Название задачи |
-| description | TEXT | Описание задачи |
-| status | ENUM | Статус задачи ("open", "completed") |
-| created_at | DATETIME | Время создания |
-| updated_at | DATETIME | Время последнего обновления |
-
-### Таблица `task_summaries`
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| id | INTEGER | Первичный ключ |
-| task_id | INTEGER | Внешний ключ на tasks.id |
-| step_number | INTEGER | Номер шага |
-| summary | TEXT | Текст summary |
-| created_at | DATETIME | Время создания |
-
-## Сценарии использования
-
-### 1. Начало новой задачи
-
-```python
-# AI-агент создает новую задачу
-result = await create_task({
-    "title": "Разработка веб-приложения",
-    "description": "Создание полнофункционального веб-приложения на FastAPI"
-})
-task_id = result["task_id"]  # Сохраняем ID для дальнейшего использования
-```
-
-### 2. Сохранение прогресса
-
-```python
-# После каждого значимого шага агент сохраняет summary
-await save_summary({
-    "task_id": task_id,
-    "step_number": 1,
-    "summary": "Выполнено: Настройка проекта и установка зависимостей\nРезультат: Готовая структура проекта с FastAPI\nПроблемы: нет\nДалее: Создание моделей данных"
-})
-
-await save_summary({
-    "task_id": task_id,
-    "step_number": 2,
-    "summary": "Выполнено: Создание моделей SQLAlchemy\nРезультат: Модели User, Product, Order\nПроблемы: нет\nДалее: Реализация API endpoints"
-})
-```
-
-### 3. Восстановление контекста
-
-```python
-# В новом чате агент восстанавливает контекст
-context = await get_task_context({"task_id": task_id})
-print(context["context_summary"])
-# Выводит весь прогресс задачи в сжатом виде
-```
-
-### 4. Завершение задачи
-
-```python
-# Когда задача выполнена, изменяем статус
-await update_task_status({
-    "task_id": task_id,
-    "status": "completed"
-})
-```
-
-### 5. Просмотр задач с фильтрацией
-
-```python
-# Получить только открытые задачи
-open_tasks = await list_tasks({
-    "status_filter": "open",
-    "page": 1,
-    "page_size": 10
-})
-
-# Получить завершенные задачи, отсортированные по дате создания
-completed_tasks = await list_tasks({
-    "status_filter": "completed",
-    "sort_by": "created_at",
-    "sort_order": "desc"
-})
-```
-
-## Правила оптимизации Summary
-
-Для минимизации токенов при сохранении качества контекста рекомендуется:
-
-### Структура summary
-
-```
-Выполнено: [краткое описание]
-Результат: [что получилось]
-Проблемы: [если были, кратко]
-Далее: [следующий шаг]
-```
-
-### Принципы
-
-- Максимум 200 слов на summary
-- Фокус на результате, а не на процессе
-- Сохранение ключевых технических решений
-- Избегание повторений из предыдущих шагов
-
-## Тестирование
-
-Запуск тестов:
-
-```bash
-# Все тесты
+# Run tests
 uv run pytest
-
-# Тесты с подробным выводом
-uv run pytest -v
-
-# Тесты конкретного модуля
-uv run pytest tests/test_services.py
 ```
 
-## Разработка
+## Usage
 
-### Структура проекта
+### Running the MCP Server
 
-```
-task-context-mcp/
-├── app/
-│   ├── __init__.py
-│   ├── models.py          # SQLAlchemy модели
-│   ├── services.py        # Бизнес-логика
-│   └── server.py          # MCP сервер (точка входа)
-├── tests/
-│   ├── test_models.py     # Тесты моделей
-│   └── test_services.py   # Тесты сервисов
-├── docs/
-│   └── task-context-mcp-plan.md
-├── pyproject.toml         # Конфигурация проекта
-└── README.md
+```bash
+# Run as a module
+uv run python -m task_context_mcp.main
+
+# Or directly
+uv run python src/task_context_mcp/main.py
 ```
 
-### Добавление новых функций
+### MCP Client Configuration
 
-1. Обновите модели в `app/models.py`
-2. Добавьте бизнес-логику в `app/services.py`
-3. Создайте MCP инструменты в `app/server.py`
-4. Напишите тесты в `tests/`
-
-## Интеграция с AI-агентами
-
-### Claude Desktop
-
-Добавьте в конфигурацию Claude Desktop:
+#### For Claude Desktop
+Add to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "task-context": {
       "command": "uv",
-      "args": ["run", "python", "-m", "app.server"],
-      "cwd": "/path/to/task-context-mcp"
+      "args": ["run", "--project", "/path/to/task-context-mcp", "python", "-m", "task_context_mcp.main"]
     }
   }
 }
 ```
 
-### Cursor
+#### For VS Code/Cursor
+Add to your `.cursor/mcp.json`:
 
-Настройте MCP сервер в настройках Cursor, указав путь к исполняемому файлу.
+```json
+{
+  "mcpServers": {
+    "task-context": {
+      "command": "uv",
+      "args": ["run", "--project", "/path/to/task-context-mcp", "python", "-m", "task_context_mcp.main"]
+    }
+  }
+}
+```
 
-## Лицензия
+### MCP Tools Available
 
-MIT License
+The server provides the following tools via MCP:
 
-## Поддержка
+#### 1. `get_active_task_contexts`
+Get all active task contexts in the system with their metadata.
+- **Returns**: List of active task contexts with id, summary, description, creation/update dates
 
-Для вопросов и предложений создавайте issues в репозитории.
+#### 2. `create_task_context`
+Create a new task context (reusable task type) with summary and description.
+- **Parameters**: 
+  - `summary` (string): Brief task context description (e.g., "CV Analysis for Python Developer")
+  - `description` (string): Detailed task context description
+- **Returns**: Created task context information
+
+#### 3. `get_artifacts_for_task_context`
+Retrieve all active artifacts for a specific task context.
+- **Parameters**:
+  - `task_context_id` (string): ID of the task context
+  - `artifact_types` (optional list): Types to retrieve ('practice', 'rule', 'prompt', 'result')
+  - `include_archived` (boolean): Whether to include archived artifacts
+- **Returns**: All matching artifacts with content
+
+#### 4. `create_artifact`
+Create a new artifact for a task context. Multiple artifacts of the same type are allowed.
+- **Parameters**:
+  - `task_context_id` (string): Associated task context ID
+  - `artifact_type` (string): Type ('practice', 'rule', 'prompt', 'result')
+  - `summary` (string): Brief description
+  - `content` (string): Full artifact content
+- **Returns**: Created artifact information
+
+**Artifact Types:**
+- **practice**: Best practices and guidelines for executing the task type
+- **rule**: Specific rules and constraints to follow
+- **prompt**: Template prompts useful for the task type
+- **result**: General patterns and learnings from past work (NOT individual execution results)
+
+#### 5. `update_artifact`
+Update an existing artifact's summary and/or content.
+- **Parameters**:
+  - `artifact_id` (string): ID of the artifact to update
+  - `summary` (optional string): New summary
+  - `content` (optional string): New content
+- **Returns**: Updated artifact information
+
+#### 6. `archive_artifact`
+Archive an artifact, marking it as no longer active.
+- **Parameters**:
+  - `artifact_id` (string): ID of artifact to archive
+  - `reason` (optional string): Reason for archiving
+- **Returns**: Archived artifact information
+
+#### 7. `search_artifacts`
+Perform full-text search across all artifacts.
+- **Parameters**:
+  - `query` (string): Search query
+  - `limit` (integer): Maximum results (default: 10)
+- **Returns**: Matching artifacts ranked by relevance
+
+## Architecture
+
+### Database Schema
+
+- **task_contexts**: Task context definitions with metadata and status tracking
+- **artifacts**: Artifact storage with lifecycle management (multiple per type per context)
+- **artifacts_fts**: FTS5 virtual table for full-text search indexing
+
+### Key Components
+
+- `src/task_context_mcp/main.py`: MCP server implementation with FastMCP
+- `src/task_context_mcp/database/models.py`: SQLAlchemy ORM models
+- `src/task_context_mcp/database/database.py`: Database operations and FTS5 management
+- `src/task_context_mcp/config/`: Configuration management with Pydantic settings
+
+### Technology Stack
+
+- **Database**: SQLite 3.35+ with FTS5 extension
+- **ORM**: SQLAlchemy 2.0+ for type-safe database operations
+- **MCP Framework**: FastMCP for Model Context Protocol implementation
+- **Configuration**: Pydantic Settings for environment-based config
+- **Logging**: Loguru for structured, multi-level logging
+- **Development**: UV for Python package and dependency management
+
+### Business Requirements Alignment
+
+This implementation fulfills all requirements from `docs/BRD.md`:
+
+- ✅ **Task Context Catalog**: UUID-based task context identification with metadata
+- ✅ **Artifact Storage**: Lifecycle management with active/archived status, multiple per type
+- ✅ **Full-Text Search**: FTS5-based search with BM25 ranking
+- ✅ **Context Loading**: Automatic retrieval based on task context matching
+- ✅ **Autonomous Updates**: Agent-driven improvements with feedback loops
+- ✅ **ACID Compliance**: Transaction-based operations with SQLite
+- ✅ **Minimal Query Processing**: Support for natural language task context matching
+
+## Use Case Scenarios
+
+### Scenario 1: Working on a New Task Type
+1. **User Request**: "Help me analyze this CV for a Python developer position"
+2. **Agent Analysis**: Agent analyzes the request and identifies it as a CV analysis task type
+3. **Task Context Discovery**: Agent calls `get_active_task_contexts` to check for existing similar contexts
+4. **Task Context Creation**: No matching context found, so agent calls `create_task_context` with:
+   - Summary: "CV Analysis for Python Developer"
+   - Description: "Analyze applicant CVs for Python developer positions with specific tech stack requirements"
+5. **Context Loading**: Agent calls `get_artifacts_for_task_context` to load any existing artifacts
+6. **Task Execution**: Agent uses loaded artifacts (practices, rules, prompts) to analyze the CV
+7. **Artifact Creation**: Based on learnings, agent calls `create_artifact` to store successful approaches
+
+### Scenario 2: Continuing Work on Existing Task Type
+1. **User Request**: "Analyze another CV for a Python developer"
+2. **Task Context Matching**: Agent calls `get_active_task_contexts` and finds matching context by summary/description
+3. **Context Retrieval**: Agent calls `get_artifacts_for_task_context` with the context ID to load all relevant artifacts
+4. **Task Execution**: Agent uses the loaded context (practices, rules, prompts, learnings) to analyze the new CV
+5. **Process Improvement**: Agent refines artifacts based on current execution and user feedback
+
+### Scenario 3: Finding Similar Past Work
+1. **User Request**: "Help me optimize this database query"
+2. **Search for Inspiration**: Agent calls `search_artifacts` with keywords like "database optimization" or "query performance"
+3. **Review Results**: Agent examines returned artifacts for similar past approaches
+4. **Adapt Patterns**: Agent adapts successful patterns from historical artifacts to current task
+5. **Store New Artifacts**: Agent creates new artifacts documenting the current successful approach
+
+### Scenario 4: Autonomous Process Improvement
+1. **Task Completion**: Agent completes a task and receives user feedback
+2. **Success Analysis**: Agent analyzes whether the execution was successful
+3. **Artifact Updates**: 
+   - Successful approaches: `create_artifact` to add new practices/rules/learnings
+   - Refinements needed: `update_artifact` to improve existing artifacts
+   - Outdated methods: `archive_artifact` with reason for archival
+4. **Future Benefit**: Subsequent tasks of the same type automatically benefit from the improved artifacts
+
+## Configuration
+
+The server uses the following configuration (via environment variables or `.env` file):
+
+- `TASK_CONTEXT_MCP__DATA_DIR`: Data directory path (default: `./data`)
+- `TASK_CONTEXT_MCP__DATABASE_URL`: Database URL (default: `sqlite:///./data/task_context.db`)
+- `TASK_CONTEXT_MCP__LOGGING_LEVEL`: Logging level (default: `INFO`)
+
+## Data Model
+
+### Task Contexts
+- **id**: Unique UUID identifier
+- **summary**: Brief task context description for matching
+- **description**: Detailed task context description
+- **creation_date**: When task context was created
+- **updated_date**: When task context was last modified
+- **status**: 'active' or 'archived'
+
+### Artifacts
+- **id**: Unique UUID identifier
+- **task_context_id**: Reference to associated task context
+- **artifact_type**: 'practice', 'rule', 'prompt', or 'result'
+- **summary**: Brief artifact description
+- **content**: Full artifact content
+- **status**: 'active' or 'archived'
+- **archived_at**: Timestamp when archived (if applicable)
+- **archivation_reason**: Reason for archiving
+- **created_at**: When artifact was created
+
+**Note**: Multiple artifacts of the same type can exist per task context. For example, a CV analysis context might have 5 different rules, 3 practices, 2 prompts, and several learnings.
+
+## Development
+
+### Running Tests
+```bash
+uv run pytest
+```
+
+### Code Quality
+```bash
+# Lint and format
+uv run ruff check
+uv run ruff format
+
+# Type checking
+uv run ty
+```
+
+## License
+
+MIT License - see LICENSE file for details.</content>
+<parameter name="filePath">/home/serj/dev/my-github-repos/task-context-mcp/README.md
