@@ -281,5 +281,4 @@ uv run ty
 
 ## License
 
-MIT License - see LICENSE file for details.</content>
-<parameter name="filePath">/home/serj/dev/my-github-repos/task-context-mcp/README.md
+MIT License - see LICENSE file for details.
