@@ -1,33 +1,42 @@
 # Task Context MCP Server
 
-An MCP (Model Context Protocol) server for managing task contexts and artifacts to enable AI agents to autonomously manage and improve execution processes for repetitive tasks.
+An MCP (Model Context Protocol) server for managing task contexts and artifacts to enable AI agents to autonomously manage and improve execution processes for repetitive task types.
 
 ## Overview
 
+**Important Distinction:** This system manages **task contexts** (reusable task types/categories), NOT individual task instances.
+
+For example:
+- **Task Context**: "Analyze applicant CV for Python developer of specific stack"
+- **NOT stored**: Individual applicant details or specific CV analyses
+- **Stored**: Reusable artifacts (practices, rules, prompts, learnings) applicable to ANY CV analysis of this type
+
 This MCP server provides a SQLite-based storage system that enables AI agents to:
 
-- **Store and retrieve task contexts** with associated artifacts (practices, rules, prompts, results)
-- **Perform full-text search** across historical results and best practices using SQLite FTS5
+- **Store and retrieve task contexts** with associated artifacts (practices, rules, prompts, learnings)
+- **Perform full-text search** across historical learnings and best practices using SQLite FTS5
 - **Manage artifact lifecycles** with active/archived status tracking
 - **Enable autonomous process improvement** with minimal user intervention
+- **Store multiple artifacts of each type** per task context
 
 ## Features
 
 ### Core Functionality
-- **Task Management**: Create, update, archive, and retrieve tasks
-- **Artifact Storage**: Store practices, rules, prompts, and results for each task
+- **Task Context Management**: Create, update, archive, and retrieve task contexts (reusable task types)
+- **Artifact Storage**: Store multiple practices, rules, prompts, and learnings for each task context
 - **Full-Text Search**: Efficient search across all artifacts using SQLite FTS5
 - **Lifecycle Management**: Track active vs archived artifacts with reasons
 - **Transaction Safety**: ACID compliance for all database operations
 
 ### MCP Tools Available
 
-1. **`get_active_tasks`** - Get all currently active tasks
-2. **`create_task`** - Create a new task with summary and description
-3. **`get_artifacts_for_task`** - Retrieve all artifacts for a specific task
-4. **`create_or_update_artifact`** - Create new or update existing artifacts
-5. **`archive_artifact`** - Archive artifacts with optional reason
-6. **`search_artifacts`** - Full-text search across all artifacts
+1. **`get_active_task_contexts`** - Get all currently active task contexts
+2. **`create_task_context`** - Create a new task context with summary and description
+3. **`get_artifacts_for_task_context`** - Retrieve all artifacts for a specific task context
+4. **`create_artifact`** - Create a new artifact (multiple per type allowed)
+5. **`update_artifact`** - Update an existing artifact's summary and/or content
+6. **`archive_artifact`** - Archive artifacts with optional reason
+7. **`search_artifacts`** - Full-text search across all artifacts
 
 ## Installation
 
@@ -94,42 +103,56 @@ Add to your `.cursor/mcp.json`:
 
 The server provides the following tools via MCP:
 
-#### 1. `get_active_tasks`
-Get all active tasks in the system with their metadata.
-- **Returns**: List of active tasks with id, summary, description, creation/update dates
+#### 1. `get_active_task_contexts`
+Get all active task contexts in the system with their metadata.
+- **Returns**: List of active task contexts with id, summary, description, creation/update dates
 
-#### 2. `create_task`
-Create a new task with summary and description.
+#### 2. `create_task_context`
+Create a new task context (reusable task type) with summary and description.
 - **Parameters**: 
-  - `summary` (string): Brief task description
-  - `description` (string): Detailed task description
-- **Returns**: Created task information
+  - `summary` (string): Brief task context description (e.g., "CV Analysis for Python Developer")
+  - `description` (string): Detailed task context description
+- **Returns**: Created task context information
 
-#### 3. `get_artifacts_for_task`
-Retrieve all active artifacts for a specific task.
+#### 3. `get_artifacts_for_task_context`
+Retrieve all active artifacts for a specific task context.
 - **Parameters**:
-  - `task_id` (string): ID of the task
+  - `task_context_id` (string): ID of the task context
   - `artifact_types` (optional list): Types to retrieve ('practice', 'rule', 'prompt', 'result')
   - `include_archived` (boolean): Whether to include archived artifacts
 - **Returns**: All matching artifacts with content
 
-#### 4. `create_or_update_artifact`
-Create a new artifact or update an existing one for a task.
+#### 4. `create_artifact`
+Create a new artifact for a task context. Multiple artifacts of the same type are allowed.
 - **Parameters**:
-  - `task_id` (string): Associated task ID
+  - `task_context_id` (string): Associated task context ID
   - `artifact_type` (string): Type ('practice', 'rule', 'prompt', 'result')
   - `summary` (string): Brief description
   - `content` (string): Full artifact content
-- **Returns**: Created/updated artifact information
+- **Returns**: Created artifact information
 
-#### 5. `archive_artifact`
+**Artifact Types:**
+- **practice**: Best practices and guidelines for executing the task type
+- **rule**: Specific rules and constraints to follow
+- **prompt**: Template prompts useful for the task type
+- **result**: General patterns and learnings from past work (NOT individual execution results)
+
+#### 5. `update_artifact`
+Update an existing artifact's summary and/or content.
+- **Parameters**:
+  - `artifact_id` (string): ID of the artifact to update
+  - `summary` (optional string): New summary
+  - `content` (optional string): New content
+- **Returns**: Updated artifact information
+
+#### 6. `archive_artifact`
 Archive an artifact, marking it as no longer active.
 - **Parameters**:
   - `artifact_id` (string): ID of artifact to archive
   - `reason` (optional string): Reason for archiving
 - **Returns**: Archived artifact information
 
-#### 6. `search_artifacts`
+#### 7. `search_artifacts`
 Perform full-text search across all artifacts.
 - **Parameters**:
   - `query` (string): Search query
@@ -140,8 +163,8 @@ Perform full-text search across all artifacts.
 
 ### Database Schema
 
-- **tasks**: Task definitions with metadata and status tracking
-- **artifacts**: Artifact storage with lifecycle management
+- **task_contexts**: Task context definitions with metadata and status tracking
+- **artifacts**: Artifact storage with lifecycle management (multiple per type per context)
 - **artifacts_fts**: FTS5 virtual table for full-text search indexing
 
 ### Key Components
@@ -164,32 +187,32 @@ Perform full-text search across all artifacts.
 
 This implementation fulfills all requirements from `docs/BRD.md`:
 
-- ✅ **Task Catalog**: UUID-based task identification with metadata
-- ✅ **Artifact Storage**: Lifecycle management with active/archived status
+- ✅ **Task Context Catalog**: UUID-based task context identification with metadata
+- ✅ **Artifact Storage**: Lifecycle management with active/archived status, multiple per type
 - ✅ **Full-Text Search**: FTS5-based search with BM25 ranking
-- ✅ **Context Loading**: Automatic retrieval based on task matching
+- ✅ **Context Loading**: Automatic retrieval based on task context matching
 - ✅ **Autonomous Updates**: Agent-driven improvements with feedback loops
 - ✅ **ACID Compliance**: Transaction-based operations with SQLite
-- ✅ **Minimal Query Processing**: Support for natural language task matching
+- ✅ **Minimal Query Processing**: Support for natural language task context matching
 
 ## Use Case Scenarios
 
-### Scenario 1: Working on a New Task
-1. **User Request**: "Help me write requirements for a new user authentication feature"
-2. **Agent Analysis**: Agent analyzes the request and identifies it as a requirements writing task
-3. **Task Discovery**: Agent calls `get_active_tasks` to check for existing similar tasks
-4. **Task Creation**: No matching task found, so agent calls `create_task` with:
-   - Summary: "User Authentication Requirements"
-   - Description: "Write detailed requirements for user authentication feature"
-5. **Context Loading**: Agent calls `get_artifacts_for_task` to load any existing artifacts
-6. **Task Execution**: Agent uses loaded artifacts (practices, rules, prompts) to write requirements
-7. **Artifact Updates**: Based on execution results, agent calls `create_or_update_artifact` to store successful approaches
+### Scenario 1: Working on a New Task Type
+1. **User Request**: "Help me analyze this CV for a Python developer position"
+2. **Agent Analysis**: Agent analyzes the request and identifies it as a CV analysis task type
+3. **Task Context Discovery**: Agent calls `get_active_task_contexts` to check for existing similar contexts
+4. **Task Context Creation**: No matching context found, so agent calls `create_task_context` with:
+   - Summary: "CV Analysis for Python Developer"
+   - Description: "Analyze applicant CVs for Python developer positions with specific tech stack requirements"
+5. **Context Loading**: Agent calls `get_artifacts_for_task_context` to load any existing artifacts
+6. **Task Execution**: Agent uses loaded artifacts (practices, rules, prompts) to analyze the CV
+7. **Artifact Creation**: Based on learnings, agent calls `create_artifact` to store successful approaches
 
-### Scenario 2: Continuing Existing Work
-1. **User Request**: "Continue working on the CV analysis feature we discussed last week"
-2. **Task Matching**: Agent calls `get_active_tasks` and finds matching task by summary/description
-3. **Context Retrieval**: Agent calls `get_artifacts_for_task` with the task ID to load all relevant artifacts
-4. **Continued Execution**: Agent uses the loaded context (practices, rules, prompts, previous results) to continue work
+### Scenario 2: Continuing Work on Existing Task Type
+1. **User Request**: "Analyze another CV for a Python developer"
+2. **Task Context Matching**: Agent calls `get_active_task_contexts` and finds matching context by summary/description
+3. **Context Retrieval**: Agent calls `get_artifacts_for_task_context` with the context ID to load all relevant artifacts
+4. **Task Execution**: Agent uses the loaded context (practices, rules, prompts, learnings) to analyze the new CV
 5. **Process Improvement**: Agent refines artifacts based on current execution and user feedback
 
 ### Scenario 3: Finding Similar Past Work
@@ -203,9 +226,10 @@ This implementation fulfills all requirements from `docs/BRD.md`:
 1. **Task Completion**: Agent completes a task and receives user feedback
 2. **Success Analysis**: Agent analyzes whether the execution was successful
 3. **Artifact Updates**: 
-   - Successful approaches: `create_or_update_artifact` to store improved practices/rules
+   - Successful approaches: `create_artifact` to add new practices/rules/learnings
+   - Refinements needed: `update_artifact` to improve existing artifacts
    - Outdated methods: `archive_artifact` with reason for archival
-4. **Future Benefit**: Subsequent tasks automatically benefit from the improved artifacts
+4. **Future Benefit**: Subsequent tasks of the same type automatically benefit from the improved artifacts
 
 ## Configuration
 
@@ -217,17 +241,17 @@ The server uses the following configuration (via environment variables or `.env`
 
 ## Data Model
 
-### Tasks
+### Task Contexts
 - **id**: Unique UUID identifier
-- **summary**: Brief task description for matching
-- **description**: Detailed task description
-- **creation_date**: When task was created
-- **updated_date**: When task was last modified
+- **summary**: Brief task context description for matching
+- **description**: Detailed task context description
+- **creation_date**: When task context was created
+- **updated_date**: When task context was last modified
 - **status**: 'active' or 'archived'
 
 ### Artifacts
 - **id**: Unique UUID identifier
-- **task_id**: Reference to associated task
+- **task_context_id**: Reference to associated task context
 - **artifact_type**: 'practice', 'rule', 'prompt', or 'result'
 - **summary**: Brief artifact description
 - **content**: Full artifact content
@@ -235,6 +259,8 @@ The server uses the following configuration (via environment variables or `.env`
 - **archived_at**: Timestamp when archived (if applicable)
 - **archivation_reason**: Reason for archiving
 - **created_at**: When artifact was created
+
+**Note**: Multiple artifacts of the same type can exist per task context. For example, a CV analysis context might have 5 different rules, 3 practices, 2 prompts, and several learnings.
 
 ## Development
 

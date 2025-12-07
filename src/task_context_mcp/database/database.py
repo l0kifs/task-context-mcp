@@ -12,8 +12,8 @@ from .models import (
     ArtifactStatus,
     ArtifactType,
     Base,
-    Task,
-    TaskStatus,
+    TaskContext,
+    TaskContextStatus,
 )
 
 
@@ -41,7 +41,7 @@ class DatabaseManager:
             conn.execute(
                 text("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS artifacts_fts USING fts5(
-                    id, summary, content, task_id, tokenize='porter'
+                    id, summary, content, task_context_id, tokenize='porter'
                 );
             """)
             )
@@ -56,132 +56,178 @@ class DatabaseManager:
         finally:
             db.close()
 
-    def create_task(
-        self, summary: str, description: str, status: TaskStatus = TaskStatus.ACTIVE
-    ):
-        """Create a new task."""
-        logger.info(f"Creating task: {summary}")
-        with self.get_session() as session:
-            task = Task(summary=summary, description=description, status=status.value)
-            session.add(task)
-            session.commit()
-            session.refresh(task)
-            logger.info(f"Task created successfully: {task.id}")
-            return task
+    # ==================== Task Context Operations ====================
 
-    def update_task(
+    def create_task_context(
         self,
-        task_id: str,
+        summary: str,
+        description: str,
+        status: TaskContextStatus = TaskContextStatus.ACTIVE,
+    ) -> TaskContext:
+        """Create a new task context (reusable task type/category)."""
+        logger.info(f"Creating task context: {summary}")
+        with self.get_session() as session:
+            task_context = TaskContext(
+                summary=summary, description=description, status=status.value
+            )
+            session.add(task_context)
+            session.commit()
+            session.refresh(task_context)
+            logger.info(f"Task context created successfully: {task_context.id}")
+            return task_context
+
+    def update_task_context(
+        self,
+        task_context_id: str,
         summary: str | None = None,
         description: str | None = None,
-        status: TaskStatus | None = None,
-    ):
-        """Update an existing task."""
-        logger.info(f"Updating task: {task_id}")
+        status: TaskContextStatus | None = None,
+    ) -> TaskContext | None:
+        """Update an existing task context."""
+        logger.info(f"Updating task context: {task_context_id}")
         with self.get_session() as session:
-            task = session.query(Task).filter(Task.id == task_id).first()
-            if task:
-                if summary is not None:
-                    task.summary = summary
-                if description is not None:
-                    task.description = description
-                if status is not None:
-                    task.status = status.value
-                session.commit()
-                session.refresh(task)
-                logger.info(f"Task updated successfully: {task_id}")
-                return task
-            else:
-                logger.warning(f"Task not found: {task_id}")
-                return None
-
-    def archive_task(self, task_id: str):
-        """Archive a task by setting its status to ARCHIVED."""
-        logger.info(f"Archiving task: {task_id}")
-        with self.get_session() as session:
-            task = session.query(Task).filter(Task.id == task_id).first()
-            if task:
-                task.status = TaskStatus.ARCHIVED.value
-                session.commit()
-                session.refresh(task)
-                logger.info(f"Task archived successfully: {task_id}")
-                return task
-            else:
-                logger.warning(f"Task not found: {task_id}")
-                return None
-
-    def get_active_tasks(self):
-        """Get all active tasks."""
-        logger.info("Getting all active tasks")
-        with self.get_session() as session:
-            tasks = (
-                session.query(Task).filter(Task.status == TaskStatus.ACTIVE.value).all()
+            task_context = (
+                session.query(TaskContext)
+                .filter(TaskContext.id == task_context_id)
+                .first()
             )
-            logger.info(f"Retrieved {len(tasks)} active tasks")
-            return tasks
+            if task_context:
+                if summary is not None:
+                    task_context.summary = summary
+                if description is not None:
+                    task_context.description = description
+                if status is not None:
+                    task_context.status = status.value
+                session.commit()
+                session.refresh(task_context)
+                logger.info(f"Task context updated successfully: {task_context_id}")
+                return task_context
+            else:
+                logger.warning(f"Task context not found: {task_context_id}")
+                return None
+
+    def archive_task_context(self, task_context_id: str) -> TaskContext | None:
+        """Archive a task context by setting its status to ARCHIVED."""
+        logger.info(f"Archiving task context: {task_context_id}")
+        with self.get_session() as session:
+            task_context = (
+                session.query(TaskContext)
+                .filter(TaskContext.id == task_context_id)
+                .first()
+            )
+            if task_context:
+                task_context.status = TaskContextStatus.ARCHIVED.value
+                session.commit()
+                session.refresh(task_context)
+                logger.info(f"Task context archived successfully: {task_context_id}")
+                return task_context
+            else:
+                logger.warning(f"Task context not found: {task_context_id}")
+                return None
+
+    def get_active_task_contexts(self) -> list[TaskContext]:
+        """Get all active task contexts."""
+        logger.info("Getting all active task contexts")
+        with self.get_session() as session:
+            task_contexts = (
+                session.query(TaskContext)
+                .filter(TaskContext.status == TaskContextStatus.ACTIVE.value)
+                .all()
+            )
+            logger.info(f"Retrieved {len(task_contexts)} active task contexts")
+            return task_contexts
+
+    # ==================== Artifact Operations ====================
 
     def create_artifact(
         self,
-        task_id: str,
+        task_context_id: str,
         artifact_type: ArtifactType,
         content: str,
         summary: str,
         status: ArtifactStatus = ArtifactStatus.ACTIVE,
-    ):
-        """Create a new artifact or update existing one for the task and type."""
+    ) -> Artifact:
+        """
+        Create a new artifact for a task context.
+
+        Multiple artifacts of the same type can exist per task context.
+        Each call creates a NEW artifact (no upsert behavior).
+        """
         logger.info(
-            f"Creating/updating artifact for task {task_id}, type {artifact_type}"
+            f"Creating artifact for task context {task_context_id}, type {artifact_type}"
         )
         with self.get_session() as session:
-            # Find existing artifact for this task and type, or create new
-            artifact = (
-                session.query(Artifact)
-                .filter(
-                    Artifact.task_id == task_id,
-                    Artifact.artifact_type == artifact_type.value,
-                )
-                .first()
+            artifact = Artifact(
+                task_context_id=task_context_id,
+                artifact_type=artifact_type.value,
+                summary=summary,
+                content=content,
+                status=status.value,
             )
-            if not artifact:
-                logger.debug(
-                    f"Creating new artifact for task {task_id}, type {artifact_type}"
-                )
-                artifact = Artifact(
-                    task_id=task_id,
-                    artifact_type=artifact_type.value,
-                    summary=summary,
-                    content=content,
-                    status=status.value,
-                )
-                session.add(artifact)
-            else:
-                logger.debug(
-                    f"Updating existing artifact for task {task_id}, type {artifact_type}"
-                )
-                artifact.summary = summary
-                artifact.content = content
-                artifact.status = status.value
+            session.add(artifact)
             session.commit()
             session.refresh(artifact)
-            # Insert or update FTS5 table
+            # Insert into FTS5 table
             with self.engine.connect() as conn:
                 conn.execute(
                     text("""
-                    INSERT OR REPLACE INTO artifacts_fts (id, summary, content, task_id)
-                    VALUES (:id, :summary, :content, :task_id)
+                    INSERT INTO artifacts_fts (id, summary, content, task_context_id)
+                    VALUES (:id, :summary, :content, :task_context_id)
                 """),
                     {
                         "id": artifact.id,
                         "summary": artifact.summary,
                         "content": artifact.content,
-                        "task_id": artifact.task_id,
+                        "task_context_id": artifact.task_context_id,
                     },
                 )
                 conn.commit()
-            logger.info(f"Artifact created/updated successfully: {artifact.id}")
+            logger.info(f"Artifact created successfully: {artifact.id}")
             return artifact
 
-    def archive_artifact(self, artifact_id: str, reason: str | None = None):
+    def update_artifact(
+        self,
+        artifact_id: str,
+        summary: str | None = None,
+        content: str | None = None,
+    ) -> Artifact | None:
+        """Update an existing artifact's summary and/or content."""
+        logger.info(f"Updating artifact: {artifact_id}")
+        with self.get_session() as session:
+            artifact = (
+                session.query(Artifact).filter(Artifact.id == artifact_id).first()
+            )
+            if artifact:
+                if summary is not None:
+                    artifact.summary = summary
+                if content is not None:
+                    artifact.content = content
+                session.commit()
+                session.refresh(artifact)
+                # Update FTS5 table
+                with self.engine.connect() as conn:
+                    conn.execute(
+                        text("""
+                        UPDATE artifacts_fts 
+                        SET summary = :summary, content = :content
+                        WHERE id = :id
+                    """),
+                        {
+                            "id": artifact.id,
+                            "summary": artifact.summary,
+                            "content": artifact.content,
+                        },
+                    )
+                    conn.commit()
+                logger.info(f"Artifact updated successfully: {artifact_id}")
+                return artifact
+            else:
+                logger.warning(f"Artifact not found: {artifact_id}")
+                return None
+
+    def archive_artifact(
+        self, artifact_id: str, reason: str | None = None
+    ) -> Artifact | None:
         """Archive an artifact by setting its status to ARCHIVED."""
         logger.info(f"Archiving artifact: {artifact_id}")
         with self.get_session() as session:
@@ -207,33 +253,37 @@ class DatabaseManager:
                 logger.warning(f"Artifact not found: {artifact_id}")
                 return None
 
-    def get_artifacts_for_task(
+    def get_artifacts_for_task_context(
         self,
-        task_id: str,
+        task_context_id: str,
         artifact_types: list[ArtifactType] | None = None,
         status: ArtifactStatus | None = None,
-    ):
-        """Get artifacts for a task"""
-        logger.info(f"Getting artifacts for task: {task_id}")
+    ) -> list[Artifact]:
+        """Get artifacts for a task context, optionally filtered by type and status."""
+        logger.info(f"Getting artifacts for task context: {task_context_id}")
         with self.get_session() as session:
-            query = session.query(Artifact).filter(Artifact.task_id == task_id)
+            query = session.query(Artifact).filter(
+                Artifact.task_context_id == task_context_id
+            )
             if artifact_types:
                 query = query.filter(
                     Artifact.artifact_type.in_([t.value for t in artifact_types])
                 )
             if status is not None:
                 query = query.filter(Artifact.status == status.value)
-            results = query.all()
-            logger.info(f"Retrieved {len(results)} artifacts for task {task_id}")
+            results = query.order_by(Artifact.created_at.desc()).all()
+            logger.info(
+                f"Retrieved {len(results)} artifacts for task context {task_context_id}"
+            )
             return results
 
-    def search_artifacts(self, query: str, limit: int = 10):
+    def search_artifacts(self, query: str, limit: int = 10) -> list:
         """Search artifacts using full-text search."""
         logger.info(f"Searching artifacts with query: {query}")
         with self.engine.connect() as conn:
             result = conn.execute(
                 text("""
-                SELECT id, summary, content, task_id, rank
+                SELECT id, summary, content, task_context_id, rank
                 FROM artifacts_fts
                 WHERE artifacts_fts MATCH :query
                 ORDER BY rank

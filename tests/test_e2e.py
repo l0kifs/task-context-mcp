@@ -44,15 +44,16 @@ class TestMCPToolsE2E:
         """Test that we can list available tools."""
         tools = mcp_client.list_tools()
 
-        # Should have 6 tools
-        assert len(tools) == 6
+        # Should have 7 tools
+        assert len(tools) == 7
 
         tool_names = [tool["name"] for tool in tools]
         expected_tools = [
-            "get_active_tasks",
-            "create_task",
-            "get_artifacts_for_task",
-            "create_or_update_artifact",
+            "get_active_task_contexts",
+            "create_task_context",
+            "get_artifacts_for_task_context",
+            "create_artifact",
+            "update_artifact",
             "archive_artifact",
             "search_artifacts",
         ]
@@ -60,114 +61,114 @@ class TestMCPToolsE2E:
         for expected_tool in expected_tools:
             assert expected_tool in tool_names
 
-    def test_get_active_tasks_empty(self, mcp_client):
-        """Test getting active tasks when none exist."""
-        result = mcp_client.call_tool("get_active_tasks", {})
+    def test_get_active_task_contexts_empty(self, mcp_client):
+        """Test getting active task contexts when none exist."""
+        result = mcp_client.call_tool("get_active_task_contexts", {})
 
-        # Should return a string indicating no active tasks
+        # Should return a string indicating no active task contexts
         assert isinstance(result.data, str)
-        assert "No active tasks found" in result.data
+        assert "No active task contexts found" in result.data
 
-    def test_create_and_get_task(self, mcp_client):
-        """Test creating a task and then retrieving it."""
-        # Create a task
+    def test_create_and_get_task_context(self, mcp_client):
+        """Test creating a task context and then retrieving it."""
+        # Create a task context
         create_result = mcp_client.call_tool(
-            "create_task",
+            "create_task_context",
             {
-                "summary": "Test Task for E2E",
-                "description": "A test task created during end-to-end testing",
+                "summary": "CV Analysis for Python Developer",
+                "description": "Analyze applicant CVs for Python developer positions with specific tech stack requirements",
             },
         )
 
         assert isinstance(create_result.data, str)
-        assert "Task created successfully" in create_result.data
-        assert "Test Task for E2E" in create_result.data
+        assert "Task context created successfully" in create_result.data
+        assert "CV Analysis for Python Developer" in create_result.data
 
-        # Extract task ID from the result (it's in the format "ID: <uuid>")
+        # Extract task context ID from the result (it's in the format "ID: <uuid>")
         lines = create_result.data.split("\n")
-        task_id_line = [line for line in lines if line.startswith("ID:")][0]
-        task_id = task_id_line.split(": ")[1]
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
 
-        # Get active tasks
-        tasks_result = mcp_client.call_tool("get_active_tasks", {})
+        # Get active task contexts
+        task_contexts_result = mcp_client.call_tool("get_active_task_contexts", {})
 
-        assert isinstance(tasks_result.data, str)
-        assert "Test Task for E2E" in tasks_result.data
-        assert task_id in tasks_result.data
+        assert isinstance(task_contexts_result.data, str)
+        assert "CV Analysis for Python Developer" in task_contexts_result.data
+        assert task_context_id in task_contexts_result.data
 
     def test_create_and_get_artifacts(self, mcp_client):
         """Test creating artifacts and retrieving them."""
-        # First create a task
-        create_task_result = mcp_client.call_tool(
-            "create_task",
+        # First create a task context
+        create_task_context_result = mcp_client.call_tool(
+            "create_task_context",
             {
-                "summary": "Artifact Test Task",
-                "description": "Task for testing artifact operations",
+                "summary": "Artifact Test Task Context",
+                "description": "Task context for testing artifact operations",
             },
         )
 
-        # Extract task ID
-        lines = create_task_result.data.split("\n")
-        task_id_line = [line for line in lines if line.startswith("ID:")][0]
-        task_id = task_id_line.split(": ")[1]
+        # Extract task context ID
+        lines = create_task_context_result.data.split("\n")
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
 
         # Create a practice artifact
         create_artifact_result = mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "practice",
                 "summary": "Test Practice",
-                "content": "This is a test practice for the task.",
+                "content": "This is a test practice for CV analysis.",
             },
         )
 
         assert isinstance(create_artifact_result.data, str)
-        assert "Artifact created/updated successfully" in create_artifact_result.data
+        assert "Artifact created successfully" in create_artifact_result.data
 
         # Create a rule artifact
         create_rule_result = mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "rule",
                 "summary": "Test Rule",
-                "content": "This is a test rule for the task.",
+                "content": "Always check for Python framework experience.",
             },
         )
 
         assert isinstance(create_rule_result.data, str)
-        assert "Artifact created/updated successfully" in create_rule_result.data
+        assert "Artifact created successfully" in create_rule_result.data
 
-        # Get artifacts for the task
+        # Get artifacts for the task context
         artifacts_result = mcp_client.call_tool(
-            "get_artifacts_for_task", {"task_id": task_id}
+            "get_artifacts_for_task_context", {"task_context_id": task_context_id}
         )
 
         assert isinstance(artifacts_result.data, str)
         assert "Test Practice" in artifacts_result.data
         assert "Test Rule" in artifacts_result.data
-        assert "This is a test practice for the task" in artifacts_result.data
-        assert "This is a test rule for the task" in artifacts_result.data
+        assert "This is a test practice for CV analysis" in artifacts_result.data
+        assert "Always check for Python framework experience" in artifacts_result.data
 
     def test_get_artifacts_with_type_filter(self, mcp_client):
         """Test getting artifacts with type filtering."""
-        # Create a task
-        create_task_result = mcp_client.call_tool(
-            "create_task",
+        # Create a task context
+        create_task_context_result = mcp_client.call_tool(
+            "create_task_context",
             {
-                "summary": "Filter Test Task",
-                "description": "Task for testing artifact type filtering",
+                "summary": "Filter Test Task Context",
+                "description": "Task context for testing artifact type filtering",
             },
         )
 
-        task_id = create_task_result.data.split("\n")[1].split(": ")[1]
+        task_context_id = create_task_context_result.data.split("\n")[1].split(": ")[1]
 
         # Create artifacts of different types
         mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "practice",
                 "summary": "Practice Artifact",
                 "content": "Practice content",
@@ -175,9 +176,9 @@ class TestMCPToolsE2E:
         )
 
         mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "rule",
                 "summary": "Rule Artifact",
                 "content": "Rule content",
@@ -185,9 +186,9 @@ class TestMCPToolsE2E:
         )
 
         mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "prompt",
                 "summary": "Prompt Artifact",
                 "content": "Prompt content",
@@ -196,8 +197,8 @@ class TestMCPToolsE2E:
 
         # Get only practice artifacts
         practice_result = mcp_client.call_tool(
-            "get_artifacts_for_task",
-            {"task_id": task_id, "artifact_types": ["practice"]},
+            "get_artifacts_for_task_context",
+            {"task_context_id": task_context_id, "artifact_types": ["practice"]},
         )
 
         assert "Practice Artifact" in practice_result.data
@@ -205,70 +206,115 @@ class TestMCPToolsE2E:
         assert "Rule Artifact" not in practice_result.data
         assert "Prompt Artifact" not in practice_result.data
 
-    def test_update_artifact(self, mcp_client):
-        """Test updating an existing artifact."""
-        # Create a task
-        create_task_result = mcp_client.call_tool(
-            "create_task",
+    def test_multiple_artifacts_same_type(self, mcp_client):
+        """Test creating multiple artifacts of the same type (now allowed)."""
+        # Create a task context
+        create_task_context_result = mcp_client.call_tool(
+            "create_task_context",
             {
-                "summary": "Update Test Task",
-                "description": "Task for testing artifact updates",
+                "summary": "Multiple Artifacts Task Context",
+                "description": "Task context for testing multiple artifacts of same type",
             },
         )
 
-        task_id = create_task_result.data.split("\n")[1].split(": ")[1]
+        task_context_id = create_task_context_result.data.split("\n")[1].split(": ")[1]
+
+        # Create first practice artifact
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "practice",
+                "summary": "First Practice",
+                "content": "First practice content",
+            },
+        )
+
+        # Create second practice artifact
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "practice",
+                "summary": "Second Practice",
+                "content": "Second practice content",
+            },
+        )
+
+        # Get artifacts and verify both exist
+        artifacts_result = mcp_client.call_tool(
+            "get_artifacts_for_task_context", {"task_context_id": task_context_id}
+        )
+
+        assert "First Practice" in artifacts_result.data
+        assert "Second Practice" in artifacts_result.data
+        assert "First practice content" in artifacts_result.data
+        assert "Second practice content" in artifacts_result.data
+
+    def test_update_artifact(self, mcp_client):
+        """Test updating an existing artifact."""
+        # Create a task context
+        create_task_context_result = mcp_client.call_tool(
+            "create_task_context",
+            {
+                "summary": "Update Test Task Context",
+                "description": "Task context for testing artifact updates",
+            },
+        )
+
+        task_context_id = create_task_context_result.data.split("\n")[1].split(": ")[1]
 
         # Create initial artifact
-        mcp_client.call_tool(
-            "create_or_update_artifact",
+        create_result = mcp_client.call_tool(
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "practice",
                 "summary": "Initial Practice",
                 "content": "Initial content",
             },
         )
 
-        # Update the same artifact (same task_id and artifact_type)
+        # Extract artifact ID
+        artifact_id = create_result.data.split("\n")[1].split(": ")[1]
+
+        # Update the artifact using the update_artifact tool
         update_result = mcp_client.call_tool(
-            "create_or_update_artifact",
+            "update_artifact",
             {
-                "task_id": task_id,
-                "artifact_type": "practice",
+                "artifact_id": artifact_id,
                 "summary": "Updated Practice",
                 "content": "Updated content",
             },
         )
 
-        assert "Artifact created/updated successfully" in update_result.data
+        assert "Artifact updated successfully" in update_result.data
 
         # Get artifacts and verify update
         artifacts_result = mcp_client.call_tool(
-            "get_artifacts_for_task", {"task_id": task_id}
+            "get_artifacts_for_task_context", {"task_context_id": task_context_id}
         )
 
         assert "Updated Practice" in artifacts_result.data
         assert "Updated content" in artifacts_result.data
-        assert "Initial Practice" not in artifacts_result.data
-        assert "Initial content" not in artifacts_result.data
 
     def test_archive_artifact(self, mcp_client):
         """Test archiving an artifact."""
-        # Create a task and artifact
-        create_task_result = mcp_client.call_tool(
-            "create_task",
+        # Create a task context and artifact
+        create_task_context_result = mcp_client.call_tool(
+            "create_task_context",
             {
-                "summary": "Archive Test Task",
-                "description": "Task for testing artifact archiving",
+                "summary": "Archive Test Task Context",
+                "description": "Task context for testing artifact archiving",
             },
         )
 
-        task_id = create_task_result.data.split("\n")[1].split(": ")[1]
+        task_context_id = create_task_context_result.data.split("\n")[1].split(": ")[1]
 
         create_artifact_result = mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "practice",
                 "summary": "Artifact to Archive",
                 "content": "Content to be archived",
@@ -288,14 +334,15 @@ class TestMCPToolsE2E:
 
         # Get active artifacts - should not include archived one
         active_artifacts = mcp_client.call_tool(
-            "get_artifacts_for_task", {"task_id": task_id}
+            "get_artifacts_for_task_context", {"task_context_id": task_context_id}
         )
 
         assert "Artifact to Archive" not in active_artifacts.data
 
         # Get artifacts including archived
         all_artifacts = mcp_client.call_tool(
-            "get_artifacts_for_task", {"task_id": task_id, "include_archived": True}
+            "get_artifacts_for_task_context",
+            {"task_context_id": task_context_id, "include_archived": True},
         )
 
         assert "Artifact to Archive" in all_artifacts.data
@@ -303,22 +350,22 @@ class TestMCPToolsE2E:
 
     def test_search_artifacts(self, mcp_client):
         """Test full-text search across artifacts."""
-        # Create a task
-        create_task_result = mcp_client.call_tool(
-            "create_task",
+        # Create a task context
+        create_task_context_result = mcp_client.call_tool(
+            "create_task_context",
             {
-                "summary": "Search Test Task",
-                "description": "Task for testing search functionality",
+                "summary": "Search Test Task Context",
+                "description": "Task context for testing search functionality",
             },
         )
 
-        task_id = create_task_result.data.split("\n")[1].split(": ")[1]
+        task_context_id = create_task_context_result.data.split("\n")[1].split(": ")[1]
 
         # Create artifacts with searchable content
         mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "practice",
                 "summary": "Python Development Practice",
                 "content": "When writing Python code, always use descriptive variable names and follow PEP 8 style guidelines.",
@@ -326,9 +373,9 @@ class TestMCPToolsE2E:
         )
 
         mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "rule",
                 "summary": "Code Review Rule",
                 "content": "During code review, check for proper error handling and test coverage.",
@@ -358,55 +405,56 @@ class TestMCPToolsE2E:
 
         assert "No artifacts found matching query" in empty_results.data
 
-    def test_task_lifecycle(self, mcp_client):
-        """Test complete task lifecycle: create, add artifacts, archive task."""
-        # Create task
-        create_task_result = mcp_client.call_tool(
-            "create_task",
+    def test_task_context_lifecycle(self, mcp_client):
+        """Test complete task context lifecycle: create, add artifacts, verify."""
+        # Create task context
+        create_task_context_result = mcp_client.call_tool(
+            "create_task_context",
             {
-                "summary": "Lifecycle Test Task",
-                "description": "Complete lifecycle test",
+                "summary": "Lifecycle Test Task Context",
+                "description": "Complete lifecycle test for task contexts",
             },
         )
 
-        task_id = create_task_result.data.split("\n")[1].split(": ")[1]
+        task_context_id = create_task_context_result.data.split("\n")[1].split(": ")[1]
 
         # Add artifacts
         mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": task_id,
+                "task_context_id": task_context_id,
                 "artifact_type": "practice",
                 "summary": "Lifecycle Practice",
                 "content": "Practice content for lifecycle test",
             },
         )
 
-        # Verify task appears in active tasks
-        active_tasks = mcp_client.call_tool("get_active_tasks", {})
-        assert "Lifecycle Test Task" in active_tasks.data
+        # Verify task context appears in active task contexts
+        active_task_contexts = mcp_client.call_tool("get_active_task_contexts", {})
+        assert "Lifecycle Test Task Context" in active_task_contexts.data
 
-        # Archive the task (this would need to be implemented in the server)
-        # For now, just verify the task exists and has artifacts
-        artifacts = mcp_client.call_tool("get_artifacts_for_task", {"task_id": task_id})
+        # Verify the task context exists and has artifacts
+        artifacts = mcp_client.call_tool(
+            "get_artifacts_for_task_context", {"task_context_id": task_context_id}
+        )
 
         assert "Lifecycle Practice" in artifacts.data
         assert "Practice content for lifecycle test" in artifacts.data
 
     def test_error_handling(self, mcp_client):
         """Test error handling for invalid inputs."""
-        # Test with invalid task ID
+        # Test with invalid task context ID
         artifacts_result = mcp_client.call_tool(
-            "get_artifacts_for_task", {"task_id": "invalid-uuid"}
+            "get_artifacts_for_task_context", {"task_context_id": "invalid-uuid"}
         )
 
         assert "No artifacts found" in artifacts_result.data
 
         # Test with invalid artifact type
         create_result = mcp_client.call_tool(
-            "create_or_update_artifact",
+            "create_artifact",
             {
-                "task_id": "invalid-uuid",
+                "task_context_id": "invalid-uuid",
                 "artifact_type": "invalid_type",
                 "summary": "Test",
                 "content": "Test content",

@@ -1,8 +1,8 @@
 # Business Requirements Document
-## AI Agent Task Management System with SQLite
+## AI Agent Task Context Management System with SQLite
 
-**Version:** 1.5  
-**Date:** December 7, 2025  
+**Version:** 1.6  
+**Date:** December 8, 2025  
 **Status:** Draft
 
 ---
@@ -10,13 +10,18 @@
 ## 1. Executive Summary
 
 ### 1.1 Project Overview
-Development of an intelligent task management system that enables AI agents to autonomously manage and improve execution processes for repetitive tasks such as writing requirements, analyzing CVs, creating automated tests, and improving testing automation concepts.
+Development of an intelligent task context management system that enables AI agents to autonomously manage and improve execution processes for repetitive task types such as writing requirements, analyzing CVs, creating automated tests, and improving testing automation concepts.
+
+**Important Distinction:** This system manages **task contexts** (reusable task types/categories), NOT individual task instances. For example:
+- **Task Context**: "Analyze applicant CV for Python developer of specific stack"
+- **NOT stored**: Individual applicant details or specific CV analyses
+- **Stored**: Reusable artifacts (practices, rules, prompts, learnings) applicable to ANY CV analysis of this type
 
 ### 1.2 Business Problem
 Current workflow requires manual or semi-manual distribution and updating of:
 - Best practices and rules
 - Supporting prompts
-- Task execution results
+- General learnings from past work
 - Process improvement documentation
 
 This creates inefficiency and prevents agents from working autonomously.
@@ -26,7 +31,7 @@ Implement SQLite-based storage system that enables:
 - Automatic context retrieval based on minimal user queries
 - Self-managed distribution of artifacts
 - Autonomous process improvement with minimal user intervention
-- Full-text search across historical results and best practices
+- Full-text search across historical learnings and best practices
 
 ---
 
@@ -36,7 +41,7 @@ Implement SQLite-based storage system that enables:
 1. **Reduce manual overhead** by 80% for artifact management
 2. **Enable autonomous agent operation** with minimal user input
 3. **Implement artifact lifecycle management** for all practices, rules, and prompts
-4. **Enable efficient context retrieval** for similar past tasks
+4. **Enable efficient context retrieval** for similar task types
 
 ### 2.2 Success Metrics
 - Time spent on manual artifact management: < 20% of current
@@ -50,7 +55,7 @@ Implement SQLite-based storage system that enables:
 
 ### 3.1 In Scope
 
-#### Task Types
+#### Task Contexts (Task Types)
 System is designed to be **task-agnostic** and extensible. Initial examples include:
 - Development requirements writing
 - Task time estimation analysis
@@ -58,13 +63,13 @@ System is designed to be **task-agnostic** and extensible. Initial examples incl
 - CV-to-position analysis
 - Test automation concept improvement
 
-**Note:** Task types are dynamically configurable. Users can add new task types without code changes.
+**Note:** Task contexts are dynamically configurable. Users can add new task contexts without code changes.
 
 #### Core Features
-- **Artifact Storage**: Best practices, rules, prompts, results
+- **Artifact Storage**: Best practices, rules, prompts, learnings (multiple per type per context)
 - **Lifecycle Management**: Active/archived status tracking with archival reasons
 - **Full-Text Search**: FTS5-based search across artifacts
-- **Context Loading**: Automatic retrieval based on task type
+- **Context Loading**: Automatic retrieval based on task context
 - **Process Improvement**: Agent-driven optimization of workflows
 
 #### Technical Components
@@ -78,21 +83,22 @@ System is designed to be **task-agnostic** and extensible. Initial examples incl
 - Real-time collaboration between multiple agents
 - External system integrations (initially)
 - GUI/web interface (MCP server only)
+- **Individual task instance tracking** (this system tracks task TYPES, not instances)
 
 ---
 
 ## 4. Use Case Scenarios
 
-### 4.1 Scenario 1: Working on New Task
-**Trigger:** User asks agent to help with a task that doesn't exist in the system
+### 4.1 Scenario 1: Working on New Task Type
+**Trigger:** User asks agent to help with a task type that doesn't exist in the system
 
 **Flow:**
-1. User asks agent to help with a task
+1. User asks agent to help with a task (e.g., "analyze this CV for Python developer position")
 2. Agent analyzes task context provided by user
-3. Agent uses task-context-mcp to get list of existing active tasks
-4. Agent analyzes the list and finds no matching task
-5. Agent creates a new task in task-context-mcp
-6. Agent adds relevant artifacts (practices, rules, prompts) to the new task if available
+3. Agent uses task-context-mcp to get list of existing active task contexts
+4. Agent analyzes the list and finds no matching task context
+5. Agent creates a new task context in task-context-mcp (e.g., "CV Analysis for Python Developer")
+6. Agent adds relevant artifacts (practices, rules, prompts) to the new task context if available
 7. Agent implements the task using the artifacts and provides output to user
 8. User reviews the output and provides feedback
 9. Agent analyzes feedback and updates artifacts if necessary (create new or archive existing)
@@ -100,15 +106,15 @@ System is designed to be **task-agnostic** and extensible. Initial examples incl
 11. User reviews and provides feedback
 12. Steps 9-11 repeat until user is satisfied
 
-### 4.2 Scenario 2: Continuing Work on Existing Task
-**Trigger:** User asks agent to help with a task that already exists in the system
+### 4.2 Scenario 2: Continuing Work on Existing Task Type
+**Trigger:** User asks agent to help with a task type that already exists in the system
 
 **Flow:**
-1. User asks agent to help with a task
+1. User asks agent to help with a task (e.g., "analyze another CV for Python developer")
 2. Agent analyzes task context provided by user
-3. Agent uses task-context-mcp to get list of existing active tasks
-4. Agent analyzes the list and finds a matching task
-5. Agent retrieves all relevant active artifacts for the existing task
+3. Agent uses task-context-mcp to get list of existing active task contexts
+4. Agent analyzes the list and finds a matching task context
+5. Agent retrieves all relevant active artifacts for the existing task context
 6. Agent implements the task using the artifacts and provides output to user
 7. User reviews the output and provides feedback
 8. Agent analyzes feedback and updates artifacts if necessary (create new or archive existing)
@@ -122,61 +128,67 @@ System is designed to be **task-agnostic** and extensible. Initial examples incl
 
 ### 5.1 Data Structure
 
-#### FR-1: Task Catalog
+#### FR-1: Task Context Catalog
 **Priority:** Critical  
-**Description:** System shall maintain a catalog of all tasks with associated metadata
+**Description:** System shall maintain a catalog of all task contexts (reusable task types) with associated metadata
 
-| Field         | Type      | Description                                                          |
-| ------------- | --------- | -------------------------------------------------------------------- |
-| id            | STRING    | Unique identifier (UUID)                                             |
-| summary       | STRING    | Summary of the task. Used by agent to identify the task              |
-| description   | TEXT      | Detailed description of the task. Used by agent to identify the task |
-| creation_date | TIMESTAMP | Timestamp when the task was created                                  |
-| updated_date  | TIMESTAMP | Timestamp when the task was last updated                             |
-| status        | ENUM      | 'active', 'archived'                                                 |
+| Field         | Type      | Description                                                                   |
+| ------------- | --------- | ----------------------------------------------------------------------------- |
+| id            | STRING    | Unique identifier (UUID)                                                      |
+| summary       | STRING    | Summary of the task context. Used by agent to identify the task type          |
+| description   | TEXT      | Detailed description of the task context. Used by agent to identify task type |
+| creation_date | TIMESTAMP | Timestamp when the task context was created                                   |
+| updated_date  | TIMESTAMP | Timestamp when the task context was last updated                              |
+| status        | ENUM      | 'active', 'archived'                                                          |
 
 #### FR-2: Artifact Storage
 **Priority:** Critical  
-**Description:** System shall store all artifacts with status tracking
+**Description:** System shall store all artifacts with status tracking. Multiple artifacts of the same type are allowed per task context.
 
 | Field              | Type      | Description                                       |
 | ------------------ | --------- | ------------------------------------------------- |
 | id                 | STRING    | Unique identifier (UUID)                          |
 | summary            | TEXT      | Summary of the artifact. Used for quick reference |
 | content            | TEXT      | Full content of the artifact                      |
-| task_id            | STRING    | Foreign key to task catalog                       |
+| task_context_id    | STRING    | Foreign key to task context catalog               |
 | artifact_type      | ENUM      | 'practice', 'rule', 'prompt', 'result'            |
 | status             | ENUM      | 'active', 'archived'                              |
 | archived_at        | TIMESTAMP | Timestamp when the artifact was archived          |
 | archivation_reason | TEXT      | Reason for archiving the artifact                 |
 | created_at         | TIMESTAMP | Timestamp when the artifact was created           |
 
+**Artifact Types:**
+- **practice**: Best practices and guidelines for executing the task type
+- **rule**: Specific rules and constraints to follow
+- **prompt**: Template prompts useful for the task type
+- **result**: General patterns and learnings from past work (NOT individual execution results)
+
 ### 5.2 Core Operations
 
-#### FR-3: Task Matching and Context Retrieval
+#### FR-3: Task Context Matching and Retrieval
 **Priority:** Critical  
-**User Story:** As an agent, I need to find existing active tasks or create new ones, and automatically load relevant context
+**User Story:** As an agent, I need to find existing active task contexts or create new ones, and automatically load relevant artifacts
 
 **Workflow:**
 1. Agent receives user request and analyzes task context
-2. Agent retrieves list of existing active tasks
-3. Agent analyzes the list to find matching task:
-   - **If match found:** Continue with existing task and load its artifacts
-   - **If no match:** Create new task and add relevant artifacts
-4. Agent retrieves all relevant active artifacts for the task
+2. Agent retrieves list of existing active task contexts
+3. Agent analyzes the list to find matching task context:
+   - **If match found:** Continue with existing task context and load its artifacts
+   - **If no match:** Create new task context and add relevant artifacts
+4. Agent retrieves all relevant active artifacts for the task context
 5. Agent implements task using artifacts and provides output
 
 **Acceptance Criteria:**
-- List all active tasks with metadata for agent analysis
+- List all active task contexts with metadata for agent analysis
 - Query "write requirements" retrieves all relevant practices, rules, and prompts
-- Full-text search (FTS5) finds similar past results (top 10)
-- SQL filters by task_type and artifact_type
+- Full-text search (FTS5) finds similar past learnings (top 10)
+- SQL filters by task context and artifact_type
 - Results ranked by relevance score
-- Support task matching by keyword similarity to user query
+- Support task context matching by keyword similarity to user query
 
 #### FR-4: Autonomous Updates with Feedback Loop
 **Priority:** High  
-**User Story:** As an agent, I need to improve practices and rules based on execution results and user feedback
+**User Story:** As an agent, I need to improve practices and rules based on execution and user feedback
 
 **Iterative Refinement Workflow:**
 1. Agent implements task using loaded artifacts
@@ -268,9 +280,9 @@ SET status='archived',
     archivation_reason='Replaced by new version with technical skills focus'
 WHERE id='artifact-uuid-42';
 
--- Insert new artifact
-INSERT INTO artifacts (id, task_id, artifact_type, summary, content, status)
-VALUES ('new-uuid', 'task-uuid', 'rule', 'CV analysis with technical skills focus', 'NEW_CONTENT', 'active');
+-- Insert new artifact (note: multiple artifacts of same type allowed)
+INSERT INTO artifacts (id, task_context_id, artifact_type, summary, content, status)
+VALUES ('new-uuid', 'task-context-uuid', 'rule', 'CV analysis with technical skills focus', 'NEW_CONTENT', 'active');
 ```
 
 **Step 7: Continuous Monitoring**
@@ -298,10 +310,10 @@ Proactively suggests:
 **User Story:** As a user, I want to send minimal queries like "analyze CV" and have agent handle the rest
 
 **Acceptance Criteria:**
-- Query parser extracts task_type from natural language
-- Agent loads all relevant context automatically
+- Query parser extracts task context from natural language
+- Agent loads all relevant artifacts automatically
 - Agent executes task with loaded context
-- Agent stores results appropriately
+- Agent stores learnings appropriately as result artifacts
 - User receives only final output
 
 #### FR-6: Artifact Lifecycle Management
@@ -309,7 +321,7 @@ Proactively suggests:
 **User Story:** As an agent, I need to manage the full lifecycle of artifacts including creation, updates, and archival based on task execution and user feedback
 
 **Lifecycle States:**
-- **Active:** Artifact is included in context loading for relevant tasks
+- **Active:** Artifact is included in context loading for relevant task contexts
 - **Archived:** Artifact is excluded from active context and hidden from queries
 
 **Feedback-Driven Lifecycle:**
@@ -319,7 +331,8 @@ Proactively suggests:
 4. All lifecycle changes are tracked with timestamps and reasons
 
 **Acceptance Criteria:**
-- Agent can create new artifacts during task execution
+- Agent can create multiple artifacts of any type during task execution
+- Agent can update existing artifacts
 - Agent can mark artifacts as 'archived' with reason and timestamp
 - Archived artifacts excluded from active context loading
 - Historical queries can still access archived artifacts if needed
@@ -352,8 +365,8 @@ Proactively suggests:
 - **NFR-5:** Zero data loss during updates
 
 ### 6.3 Scalability
-- **NFR-6:** Support up to 100K artifacts per task
-- **NFR-7:** Support unlimited artifacts per task type
+- **NFR-6:** Support up to 100K artifacts per task context
+- **NFR-7:** Support unlimited artifacts per task context (multiple of each type)
 - **NFR-8:** Embedded mode sufficient for single-user workload
 
 ### 6.4 Maintainability
@@ -458,7 +471,7 @@ with Session(engine) as session:
 
 ### 7.3 Integration Points
 - **Input:** User natural language queries via MCP tools
-- **Output:** Task execution results + updated artifacts via MCP responses
+- **Output:** Task execution artifacts + updated artifacts via MCP responses
 - **Storage:** Local SQLite file (`./data/task_context.db`)
 - **Backup:** Git repository (optional) + SQLite backup API
 - **AI Access:** GitHub Copilot API via VSCode extension
@@ -473,14 +486,14 @@ with Session(engine) as session:
 - SQLite setup and schema design
 - FTS5 virtual tables for full-text search
 - Basic CRUD operations
-- Task and Artifact models with UUID-based identification
-- Single task type example (e.g., requirements writing)
+- TaskContext and Artifact models with UUID-based identification
+- Single task context example (e.g., requirements writing)
 
 ### Phase 2: Intelligence (Weeks 3-4)
 - Full-text search optimization
 - Context auto-loading
 - Artifact lifecycle management (active/archived)
-- Task matching by summary and description
+- Task context matching by summary and description
 
 ### Phase 3: Autonomy (Weeks 5-6)
 - Agent-driven updates
@@ -489,9 +502,9 @@ with Session(engine) as session:
 
 ### Phase 4: Optimization (Weeks 7-8)
 - Performance tuning
-- Support for unlimited task types
+- Support for unlimited task contexts
 - Monitoring and logging
-- Task type management via MCP tools
+- Task context management via MCP tools
 
 ---
 
@@ -524,16 +537,17 @@ with Session(engine) as session:
 
 ### MVP (Minimum Viable Product)
 - ✅ Store and retrieve artifacts with status tracking
-- ✅ Full-text search across historical results
-- ✅ Auto-load context for tasks by summary/description
+- ✅ Full-text search across historical learnings
+- ✅ Auto-load context for task contexts by summary/description
 - ✅ Artifact archival with reason tracking
+- ✅ Multiple artifacts per type per task context
 
 ### Full Release
-- ✅ Unlimited tasks supported with UUID-based identification
+- ✅ Unlimited task contexts supported with UUID-based identification
 - ✅ Autonomous agent updates with approval
-- ✅ Minimal query processing for all tasks
+- ✅ Minimal query processing for all task contexts
 - ✅ 80% reduction in manual overhead achieved
-- ✅ Task and artifact lifecycle management
+- ✅ Task context and artifact lifecycle management
 
 ---
 
@@ -546,3 +560,4 @@ with Session(engine) as session:
   - v1.3 - Replaced sqlite3 with SQLAlchemy ORM for cleaner, type-safe database access
   - v1.4 - Updated data structures to match final implementation: UUID-based identification, simplified status model (active/archived), updated field names to match models.py
   - v1.5 - Simplified project by removing artifact versioning concept entirely; artifacts are now simply created, updated, or archived
+  - v1.6 - Renamed Task to TaskContext to clarify that system manages task TYPES, not individual instances; Added support for multiple artifacts per type per task context; Clarified that "result" artifacts store learnings, not individual execution results

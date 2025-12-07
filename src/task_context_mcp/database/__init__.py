@@ -1,13 +1,20 @@
 from .database import DatabaseManager, db_manager
-from .models import Artifact, ArtifactStatus, ArtifactType, Base, Task, TaskStatus
+from .models import (
+    Artifact,
+    ArtifactStatus,
+    ArtifactType,
+    Base,
+    TaskContext,
+    TaskContextStatus,
+)
 
 __all__ = [
     "DatabaseManager",
     "db_manager",
     "Base",
-    "Task",
+    "TaskContext",
     "Artifact",
-    "TaskStatus",
+    "TaskContextStatus",
     "ArtifactType",
     "ArtifactStatus",
 ]

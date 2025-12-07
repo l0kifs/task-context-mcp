@@ -2,7 +2,11 @@
 Task Context MCP Server
 
 An MCP server for managing task contexts and artifacts to enable AI agents
-to autonomously manage and improve execution processes for repetitive tasks.
+to autonomously manage and improve execution processes for repetitive task types.
+
+Task contexts represent reusable task categories (e.g., "CV analysis for Python developers"),
+not individual task instances. Artifacts store general practices, rules, prompts, and
+learnings that can be applied to any instance of that task type.
 """
 
 from typing import List, Optional
@@ -25,37 +29,60 @@ mcp = FastMCP(
     name="Task Context MCP Server",
     instructions="""
     This MCP server manages task contexts and artifacts for AI agents.
+    
+    IMPORTANT: Task contexts represent reusable TASK TYPES, not individual task instances.
+    For example, "Analyze applicant CV for Python developer" is a task context.
+    Individual CV analyses are NOT stored - only reusable artifacts that help with this type of work.
+    
     Use the available tools to:
-    - Get active tasks to understand what tasks are available
-    - Create new tasks when working on something new
-    - Retrieve artifacts (practices, rules, prompts, results) for tasks
-    - Create or update artifacts based on execution results
+    - Get active task contexts to find matching task types for your current work
+    - Create new task contexts when working on a new type of task
+    - Retrieve artifacts (practices, rules, prompts, learnings) for task contexts
+    - Create new artifacts to capture best practices, rules, prompts, or learnings
+    - Update existing artifacts based on feedback and execution results
     - Archive outdated artifacts
     - Search across all artifacts using full-text search
-
-    The server uses SQLite with FTS5 for efficient full-text search across
-    historical results and best practices.
+    
+    Artifact types:
+    - practice: Best practices and guidelines for executing the task type
+    - rule: Specific rules and constraints to follow
+    - prompt: Template prompts useful for the task type
+    - result: General patterns and learnings from past work (NOT individual execution results)
+    
+    The server uses SQLite with FTS5 for efficient full-text search.
     """,
 )
 
 
 # Pydantic models for tool parameters
-class TaskCreateRequest(BaseModel):
-    """Request model for creating a new task."""
+class TaskContextCreateRequest(BaseModel):
+    """Request model for creating a new task context."""
 
-    summary: str = Field(..., description="Summary of the task")
-    description: str = Field(..., description="Detailed description of the task")
+    summary: str = Field(..., description="Summary of the task context (task type)")
+    description: str = Field(
+        ..., description="Detailed description of the task context"
+    )
 
 
 class ArtifactCreateRequest(BaseModel):
-    """Request model for creating/updating an artifact."""
+    """Request model for creating an artifact."""
 
-    task_id: str = Field(..., description="ID of the task this artifact belongs to")
+    task_context_id: str = Field(
+        ..., description="ID of the task context this artifact belongs to"
+    )
     artifact_type: str = Field(
         ..., description="Type of artifact: 'practice', 'rule', 'prompt', 'result'"
     )
     summary: str = Field(..., description="Summary of the artifact")
     content: str = Field(..., description="Full content of the artifact")
+
+
+class ArtifactUpdateRequest(BaseModel):
+    """Request model for updating an artifact."""
+
+    artifact_id: str = Field(..., description="ID of the artifact to update")
+    summary: Optional[str] = Field(None, description="New summary for the artifact")
+    content: Optional[str] = Field(None, description="New content for the artifact")
 
 
 class ArtifactArchiveRequest(BaseModel):
@@ -66,9 +93,9 @@ class ArtifactArchiveRequest(BaseModel):
 
 
 class GetArtifactsRequest(BaseModel):
-    """Request model for getting artifacts for a task."""
+    """Request model for getting artifacts for a task context."""
 
-    task_id: str = Field(..., description="ID of the task")
+    task_context_id: str = Field(..., description="ID of the task context")
     artifact_types: Optional[List[str]] = Field(
         None, description="Types of artifacts to retrieve"
     )
@@ -86,73 +113,78 @@ class SearchArtifactsRequest(BaseModel):
 
 # MCP Tools
 @mcp.tool
-def get_active_tasks() -> str:
+def get_active_task_contexts() -> str:
     """
-    Get all active tasks in the system.
+    Get all active task contexts in the system.
 
-    Returns a list of active tasks with their metadata (id, summary, description, creation_date, updated_date).
-    This is useful for agents to understand what tasks are currently available and find matching tasks
-    for their current work.
+    Returns a list of active task contexts with their metadata.
+    Task contexts represent reusable TASK TYPES (e.g., "CV analysis for Python developer"),
+    not individual task instances.
+
+    Use this to find if a matching task context already exists for your current work.
     """
     try:
-        tasks = db_manager.get_active_tasks()
+        task_contexts = db_manager.get_active_task_contexts()
 
-        if not tasks:
-            return "No active tasks found."
+        if not task_contexts:
+            return "No active task contexts found."
 
-        result = "Active Tasks:\n\n"
-        for task in tasks:
-            result += f"ID: {task.id}\n"
-            result += f"Summary: {task.summary}\n"
-            result += f"Description: {task.description}\n"
-            result += f"Created: {task.creation_date}\n"
-            result += f"Updated: {task.updated_date}\n"
+        result = "Active Task Contexts:\n\n"
+        for tc in task_contexts:
+            result += f"ID: {tc.id}\n"
+            result += f"Summary: {tc.summary}\n"
+            result += f"Description: {tc.description}\n"
+            result += f"Created: {tc.creation_date}\n"
+            result += f"Updated: {tc.updated_date}\n"
             result += "---\n"
 
         return result
 
     except Exception as e:
-        return f"Error getting active tasks: {str(e)}"
+        return f"Error getting active task contexts: {str(e)}"
 
 
 @mcp.tool
-def create_task(summary: str, description: str) -> str:
+def create_task_context(summary: str, description: str) -> str:
     """
-    Create a new task in the system.
+    Create a new task context (reusable task type).
 
-    Use this when an agent is working on a task that doesn't exist yet in the system.
-    The agent should analyze the task context and create a new task if no matching
-    active task is found.
+    Use this when working on a type of task that doesn't exist yet in the system.
+    Task contexts represent categories of work, not individual instances.
+
+    Example: "Analyze applicant CV for Python developer of specific stack"
+    NOT: "Analyze John's CV" (individual instance)
 
     Args:
-        summary: Summary of the task
-        description: Detailed description of the task
+        summary: Summary of the task context (task type)
+        description: Detailed description of the task context
     """
     try:
-        task = db_manager.create_task(summary=summary, description=description)
+        task_context = db_manager.create_task_context(
+            summary=summary, description=description
+        )
 
-        return f"Task created successfully:\nID: {task.id}\nSummary: {task.summary}\nDescription: {task.description}"
+        return f"Task context created successfully:\nID: {task_context.id}\nSummary: {task_context.summary}\nDescription: {task_context.description}"
 
     except Exception as e:
-        return f"Error creating task: {str(e)}"
+        return f"Error creating task context: {str(e)}"
 
 
 @mcp.tool
-def get_artifacts_for_task(
-    task_id: str,
+def get_artifacts_for_task_context(
+    task_context_id: str,
     artifact_types: Optional[List[str]] = None,
     include_archived: bool = False,
 ) -> str:
     """
-    Get all active artifacts for a specific task.
+    Get all artifacts for a specific task context.
 
-    This automatically loads relevant context (practices, rules, prompts, results)
-    for a task. Use this when continuing work on an existing task or when
-    an agent needs to retrieve all relevant artifacts for task execution.
+    This loads relevant context (practices, rules, prompts, learnings) for a task type.
+    Use this when working on a task to retrieve all relevant artifacts.
 
     Args:
-        task_id: ID of the task
-        artifact_types: Types of artifacts to retrieve (optional)
+        task_context_id: ID of the task context
+        artifact_types: Types of artifacts to retrieve (optional, defaults to all)
         include_archived: Whether to include archived artifacts (default: False)
     """
     try:
@@ -166,15 +198,17 @@ def get_artifacts_for_task(
 
         status = None if include_archived else ArtifactStatus.ACTIVE
 
-        artifacts = db_manager.get_artifacts_for_task(
-            task_id=task_id, artifact_types=artifact_type_enums, status=status
+        artifacts = db_manager.get_artifacts_for_task_context(
+            task_context_id=task_context_id,
+            artifact_types=artifact_type_enums,
+            status=status,
         )
 
         if not artifacts:
             status_msg = " (including archived)" if include_archived else ""
-            return f"No artifacts found for task {task_id}{status_msg}."
+            return f"No artifacts found for task context {task_context_id}{status_msg}."
 
-        result = f"Artifacts for task {task_id}:\n\n"
+        result = f"Artifacts for task context {task_context_id}:\n\n"
         for artifact in artifacts:
             result += f"ID: {artifact.id}\n"
             result += f"Type: {artifact.artifact_type}\n"
@@ -190,26 +224,27 @@ def get_artifacts_for_task(
         return result
 
     except Exception as e:
-        return f"Error getting artifacts for task: {str(e)}"
+        return f"Error getting artifacts for task context: {str(e)}"
 
 
 @mcp.tool
-def create_or_update_artifact(
-    task_id: str, artifact_type: str, summary: str, content: str
+def create_artifact(
+    task_context_id: str, artifact_type: str, summary: str, content: str
 ) -> str:
     """
-    Create a new artifact or update an existing one for a task.
+    Create a new artifact for a task context.
 
-    Use this during task execution to:
-    - Add new practices, rules, prompts, or results
-    - Update existing artifacts based on execution feedback
-    - Improve workflows autonomously based on success/failure analysis
+    Multiple artifacts of the same type can exist per task context.
+    Use this to add new practices, rules, prompts, or learnings.
 
-    If an artifact of the same type already exists for the task, it will be updated.
-    Otherwise, a new artifact will be created.
+    Artifact types:
+    - practice: Best practices and guidelines
+    - rule: Specific rules and constraints
+    - prompt: Template prompts
+    - result: General patterns/learnings from past work (NOT individual results)
 
     Args:
-        task_id: ID of the task this artifact belongs to
+        task_context_id: ID of the task context this artifact belongs to
         artifact_type: Type of artifact: 'practice', 'rule', 'prompt', 'result'
         summary: Summary of the artifact
         content: Full content of the artifact
@@ -220,16 +255,48 @@ def create_or_update_artifact(
             return f"Invalid artifact type: {artifact_type}. Must be one of: {[t.value for t in ArtifactType]}"
 
         artifact = db_manager.create_artifact(
-            task_id=task_id,
+            task_context_id=task_context_id,
             artifact_type=ArtifactType(artifact_type),
             summary=summary,
             content=content,
         )
 
-        return f"Artifact created/updated successfully:\nID: {artifact.id}\nType: {artifact.artifact_type}\nSummary: {artifact.summary}"
+        return f"Artifact created successfully:\nID: {artifact.id}\nType: {artifact.artifact_type}\nSummary: {artifact.summary}"
 
     except Exception as e:
-        return f"Error creating/updating artifact: {str(e)}"
+        return f"Error creating artifact: {str(e)}"
+
+
+@mcp.tool
+def update_artifact(
+    artifact_id: str, summary: Optional[str] = None, content: Optional[str] = None
+) -> str:
+    """
+    Update an existing artifact's summary and/or content.
+
+    Use this to refine artifacts based on feedback or new learnings.
+    At least one of summary or content must be provided.
+
+    Args:
+        artifact_id: ID of the artifact to update
+        summary: New summary for the artifact (optional)
+        content: New content for the artifact (optional)
+    """
+    try:
+        if summary is None and content is None:
+            return "Error: At least one of 'summary' or 'content' must be provided."
+
+        artifact = db_manager.update_artifact(
+            artifact_id=artifact_id, summary=summary, content=content
+        )
+
+        if artifact:
+            return f"Artifact updated successfully:\nID: {artifact.id}\nSummary: {artifact.summary}"
+        else:
+            return f"Artifact not found: {artifact_id}"
+
+    except Exception as e:
+        return f"Error updating artifact: {str(e)}"
 
 
 @mcp.tool
@@ -240,14 +307,14 @@ def archive_artifact(artifact_id: str, reason: Optional[str] = None) -> str:
     Use this when:
     - An artifact is no longer relevant or has been superseded
     - User feedback indicates an artifact should be replaced
-    - Agent analysis shows an artifact is causing failures
+    - Analysis shows an artifact is causing issues
 
     Archived artifacts are excluded from active context loading but remain
     available for historical queries.
 
     Args:
         artifact_id: ID of the artifact to archive
-        reason: Reason for archiving the artifact (optional)
+        reason: Reason for archiving the artifact (optional but recommended)
     """
     try:
         artifact = db_manager.archive_artifact(artifact_id=artifact_id, reason=reason)
@@ -267,9 +334,9 @@ def search_artifacts(query: str, limit: int = 10) -> str:
     """
     Search across all artifacts using full-text search.
 
-    This enables finding similar past results, practices, or rules.
+    This enables finding similar past learnings, practices, or rules.
     Useful for:
-    - Finding relevant context for new tasks
+    - Finding relevant context for new task contexts
     - Discovering similar approaches from past work
     - Getting inspiration from historical artifacts
 
@@ -287,9 +354,9 @@ def search_artifacts(query: str, limit: int = 10) -> str:
 
         result = f"Search results for '{query}' (limit: {limit}):\n\n"
         for row in results:
-            artifact_id, summary, content, task_id, rank = row
+            artifact_id, summary, content, task_context_id, rank = row
             result += f"Artifact ID: {artifact_id}\n"
-            result += f"Task ID: {task_id}\n"
+            result += f"Task Context ID: {task_context_id}\n"
             result += f"Summary: {summary}\n"
             result += f"Content Preview: {content[:200]}{'...' if len(content) > 200 else ''}\n"
             result += f"Relevance Rank: {rank}\n"
