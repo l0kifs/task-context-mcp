@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from task_context_mcp.client import SyncMCPClient
+from .client import SyncMCPClient
 
 
 @pytest.fixture

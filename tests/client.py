@@ -101,6 +101,9 @@ class SyncMCPClient:
             self._loop.run_until_complete(
                 self._async_client.__aexit__(exc_type, exc_val, exc_tb)
             )
+            # Properly stop the transport to prevent cleanup warnings
+            if hasattr(self._async_client.transport, "_stop_event"):
+                self._async_client.transport._stop_event.set()
 
         if self._loop:
             self._loop.close()
