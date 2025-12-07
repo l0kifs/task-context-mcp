@@ -34,16 +34,38 @@ mcp = FastMCP(
     For example, "Analyze applicant CV for Python developer" is a task context.
     Individual CV analyses are NOT stored - only reusable artifacts that help with this type of work.
     
-    Use the available tools to:
-    - Get active task contexts to find matching task types for your current work
-    - Create new task contexts when working on a new type of task
-    - Retrieve artifacts (practices, rules, prompts, learnings) for task contexts
-    - Create new artifacts to capture best practices, rules, prompts, or learnings
-    - Update existing artifacts based on feedback and execution results
-    - Archive outdated artifacts
-    - Search across all artifacts using full-text search
+    MAIN USE CASE SCENARIOS:
     
-    Artifact types:
+    Scenario 1 - Working on a NEW Task Type:
+    1. User asks you to help with a task (e.g., "analyze this CV for Python developer position")
+    2. Use get_active_task_contexts() to get list of existing task contexts
+    3. Analyze the list - if NO matching task context exists:
+       a. Create a new task context using create_task_context()
+       b. Add relevant artifacts (practices, rules, prompts) if you have knowledge to share
+    4. Implement the task and provide output to user
+    5. Based on user feedback, update artifacts (create new or archive existing)
+    6. Repeat refinement until user is satisfied
+    
+    Scenario 2 - Continuing Work on EXISTING Task Type:
+    1. User asks you to help with a task (e.g., "analyze another CV for Python developer")
+    2. Use get_active_task_contexts() to get list of existing task contexts
+    3. Analyze the list - if a MATCHING task context exists:
+       a. Use get_artifacts_for_task_context() to load all relevant artifacts
+       b. Apply the loaded practices, rules, and prompts to your work
+    4. Implement the task using the artifacts and provide output to user
+    5. Based on user feedback, update artifacts (create new or archive existing)
+    6. Repeat refinement until user is satisfied
+    
+    AVAILABLE TOOLS:
+    - get_active_task_contexts: Find matching task types for your current work
+    - create_task_context: Create new task context when working on a new type of task
+    - get_artifacts_for_task_context: Load practices, rules, prompts, learnings for a task context
+    - create_artifact: Add new practices, rules, prompts, or learnings
+    - update_artifact: Refine existing artifacts based on feedback
+    - archive_artifact: Mark outdated artifacts as archived
+    - search_artifacts: Full-text search across all artifacts
+    
+    ARTIFACT TYPES:
     - practice: Best practices and guidelines for executing the task type
     - rule: Specific rules and constraints to follow
     - prompt: Template prompts useful for the task type
@@ -347,6 +369,9 @@ def search_artifacts(query: str, limit: int = 10) -> str:
         limit: Maximum number of results to return (default: 10)
     """
     try:
+        if not query or not query.strip():
+            return "Error: Search query cannot be empty."
+
         results = db_manager.search_artifacts(query=query, limit=limit)
 
         if not results:

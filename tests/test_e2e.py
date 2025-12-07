@@ -441,6 +441,307 @@ class TestMCPToolsE2E:
         assert "Lifecycle Practice" in artifacts.data
         assert "Practice content for lifecycle test" in artifacts.data
 
+    def test_get_active_task_contexts_with_multiple(self, mcp_client):
+        """Test getting active task contexts when multiple exist."""
+        # Create multiple task contexts
+        contexts = [
+            ("Context 1", "Description 1"),
+            ("Context 2", "Description 2"),
+            ("Context 3", "Description 3"),
+        ]
+
+        created_ids = []
+        for summary, description in contexts:
+            result = mcp_client.call_tool(
+                "create_task_context",
+                {"summary": summary, "description": description},
+            )
+            lines = result.data.split("\n")
+            task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+            created_ids.append(task_context_id_line.split(": ")[1])
+
+        # Get active task contexts
+        result = mcp_client.call_tool("get_active_task_contexts", {})
+
+        # Verify all contexts are listed
+        for summary, _ in contexts:
+            assert summary in result.data
+
+        # Verify all IDs are present
+        for tc_id in created_ids:
+            assert tc_id in result.data
+
+    def test_get_artifacts_edge_cases(self, mcp_client):
+        """Test edge cases for get_artifacts_for_task_context."""
+        # Test with invalid UUID
+        result = mcp_client.call_tool(
+            "get_artifacts_for_task_context", {"task_context_id": "not-a-uuid"}
+        )
+        assert "No artifacts found" in result.data
+
+        # Test with empty artifact_types list
+        create_result = mcp_client.call_tool(
+            "create_task_context",
+            {"summary": "Edge Case Context", "description": "For edge case testing"},
+        )
+        lines = create_result.data.split("\n")
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
+
+        result = mcp_client.call_tool(
+            "get_artifacts_for_task_context",
+            {"task_context_id": task_context_id, "artifact_types": []},
+        )
+        assert "No artifacts found" in result.data
+
+        # Test include_archived when no archived artifacts exist
+        result = mcp_client.call_tool(
+            "get_artifacts_for_task_context",
+            {"task_context_id": task_context_id, "include_archived": True},
+        )
+        assert "No artifacts found" in result.data
+
+    def test_create_artifact_edge_cases(self, mcp_client):
+        """Test edge cases for create_artifact."""
+        # Create a task context first
+        create_result = mcp_client.call_tool(
+            "create_task_context",
+            {
+                "summary": "Artifact Edge Case Context",
+                "description": "For artifact edge cases",
+            },
+        )
+        lines = create_result.data.split("\n")
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
+
+        # Test creating multiple artifacts of same type
+        for i in range(3):
+            result = mcp_client.call_tool(
+                "create_artifact",
+                {
+                    "task_context_id": task_context_id,
+                    "artifact_type": "practice",
+                    "summary": f"Practice {i + 1}",
+                    "content": f"Content for practice {i + 1}",
+                },
+            )
+            assert "Artifact created successfully" in result.data
+
+        # Verify all artifacts exist
+        artifacts_result = mcp_client.call_tool(
+            "get_artifacts_for_task_context", {"task_context_id": task_context_id}
+        )
+        for i in range(3):
+            assert f"Practice {i + 1}" in artifacts_result.data
+            assert f"Content for practice {i + 1}" in artifacts_result.data
+
+        # Test with invalid task_context_id
+        result = mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": "invalid-id",
+                "artifact_type": "practice",
+                "summary": "Invalid Context",
+                "content": "Should fail",
+            },
+        )
+        # This might succeed or fail depending on DB constraints, but let's check
+        # Actually, since it's e2e, it might create with invalid FK, but probably fails
+        # From existing test_error_handling, it seems invalid types are caught, but invalid IDs might not be
+
+    def test_update_artifact_edge_cases(self, mcp_client):
+        """Test edge cases for update_artifact."""
+        # Create task context and artifact
+        create_tc_result = mcp_client.call_tool(
+            "create_task_context",
+            {
+                "summary": "Update Edge Case Context",
+                "description": "For update edge cases",
+            },
+        )
+        lines = create_tc_result.data.split("\n")
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
+
+        create_art_result = mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "practice",
+                "summary": "Original Summary",
+                "content": "Original content",
+            },
+        )
+        lines = create_art_result.data.split("\n")
+        artifact_id_line = [line for line in lines if line.startswith("ID:")][0]
+        artifact_id = artifact_id_line.split(": ")[1]
+
+        # Test updating only summary
+        result = mcp_client.call_tool(
+            "update_artifact",
+            {"artifact_id": artifact_id, "summary": "Updated Summary"},
+        )
+        assert "Artifact updated successfully" in result.data
+
+        # Verify update
+        artifacts_result = mcp_client.call_tool(
+            "get_artifacts_for_task_context", {"task_context_id": task_context_id}
+        )
+        assert "Updated Summary" in artifacts_result.data
+        assert "Original content" in artifacts_result.data
+
+        # Test updating only content
+        result = mcp_client.call_tool(
+            "update_artifact",
+            {"artifact_id": artifact_id, "content": "Updated content"},
+        )
+        assert "Artifact updated successfully" in result.data
+
+        # Verify update
+        artifacts_result = mcp_client.call_tool(
+            "get_artifacts_for_task_context", {"task_context_id": task_context_id}
+        )
+        assert "Updated Summary" in artifacts_result.data
+        assert "Updated content" in artifacts_result.data
+
+        # Test updating non-existent artifact
+        result = mcp_client.call_tool(
+            "update_artifact",
+            {"artifact_id": "non-existent-id", "summary": "Should fail"},
+        )
+        assert "Artifact not found" in result.data
+
+        # Test updating with neither summary nor content
+        result = mcp_client.call_tool(
+            "update_artifact",
+            {"artifact_id": artifact_id},
+        )
+        assert "At least one of 'summary' or 'content' must be provided" in result.data
+
+    def test_archive_artifact_edge_cases(self, mcp_client):
+        """Test edge cases for archive_artifact."""
+        # Create task context and artifact
+        create_tc_result = mcp_client.call_tool(
+            "create_task_context",
+            {
+                "summary": "Archive Edge Case Context",
+                "description": "For archive edge cases",
+            },
+        )
+        lines = create_tc_result.data.split("\n")
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
+
+        create_art_result = mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "practice",
+                "summary": "To Archive",
+                "content": "Content to archive",
+            },
+        )
+        lines = create_art_result.data.split("\n")
+        artifact_id_line = [line for line in lines if line.startswith("ID:")][0]
+        artifact_id = artifact_id_line.split(": ")[1]
+
+        # Archive the artifact
+        result = mcp_client.call_tool(
+            "archive_artifact",
+            {"artifact_id": artifact_id, "reason": "Testing archive"},
+        )
+        assert "Artifact archived successfully" in result.data
+
+        # Try to archive already archived artifact
+        result = mcp_client.call_tool(
+            "archive_artifact",
+            {"artifact_id": artifact_id, "reason": "Already archived"},
+        )
+        # This should still succeed or handle gracefully
+        # Depending on implementation, might succeed or fail
+
+        # Test archiving with no reason
+        # Create another artifact
+        create_art2_result = mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "rule",
+                "summary": "To Archive No Reason",
+                "content": "Content",
+            },
+        )
+        lines = create_art2_result.data.split("\n")
+        artifact2_id_line = [line for line in lines if line.startswith("ID:")][0]
+        artifact2_id = artifact2_id_line.split(": ")[1]
+
+        result = mcp_client.call_tool(
+            "archive_artifact",
+            {"artifact_id": artifact2_id},
+        )
+        assert "Artifact archived successfully" in result.data
+
+    def test_search_artifacts_edge_cases(self, mcp_client):
+        """Test edge cases for search_artifacts."""
+        # Test with empty query
+        result = mcp_client.call_tool("search_artifacts", {"query": ""})
+        assert "Search query cannot be empty" in result.data
+
+        # Test with whitespace-only query
+        result = mcp_client.call_tool("search_artifacts", {"query": "   "})
+        assert "Search query cannot be empty" in result.data
+
+        # Test with query that has no matches
+        result = mcp_client.call_tool(
+            "search_artifacts", {"query": "nonexistenttermxyz"}
+        )
+        assert "No artifacts found" in result.data
+
+        # Test with limit = 0
+        result = mcp_client.call_tool("search_artifacts", {"query": "test", "limit": 0})
+        # Should return no results or handle gracefully
+        assert isinstance(result.data, str)
+
+        # Test with very large limit
+        result = mcp_client.call_tool(
+            "search_artifacts", {"query": "test", "limit": 1000}
+        )
+        assert isinstance(result.data, str)
+
+        # Test with special characters
+        result = mcp_client.call_tool("search_artifacts", {"query": "!@#$%^&*()"})
+        assert isinstance(result.data, str)  # Should not crash
+
+        # Create some artifacts to search
+        create_tc_result = mcp_client.call_tool(
+            "create_task_context",
+            {"summary": "Search Test Context", "description": "For search edge cases"},
+        )
+        lines = create_tc_result.data.split("\n")
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
+
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "practice",
+                "summary": "Unique search term",
+                "content": "Content with unique search term",
+            },
+        )
+
+        # Test search with exact match
+        result = mcp_client.call_tool(
+            "search_artifacts", {"query": "unique search term"}
+        )
+        assert "Unique search term" in result.data
+
+        # Test search with partial match
+        result = mcp_client.call_tool("search_artifacts", {"query": "unique"})
+        assert "Unique search term" in result.data
+
     def test_error_handling(self, mcp_client):
         """Test error handling for invalid inputs."""
         # Test with invalid task context ID
