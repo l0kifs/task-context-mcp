@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     data_dir: str = Field(default="./data", description="Data directory path")
 
     # Database settings
-    database_url: str = Field(default=f"sqlite:///{data_dir}/task_context.db", description="Database URL")
+    database_url: str = Field(default="sqlite:///./data/task_context.db", description="Database URL")
 
     # Logging settings
     logging_level: str = Field(default="INFO", description="Logging level")

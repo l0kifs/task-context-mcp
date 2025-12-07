@@ -22,6 +22,7 @@ class DatabaseManager:
 
     def __init__(self):
         self.settings = get_settings()
+        Path(self.settings.data_dir).mkdir(exist_ok=True)
         self.engine = create_engine(self.settings.database_url, echo=False)
         self.SessionLocal = sessionmaker(
             autocommit=False, autoflush=False, bind=self.engine
@@ -220,10 +221,8 @@ class DatabaseManager:
                 query = query.filter(
                     Artifact.artifact_type.in_([t.value for t in artifact_types])
                 )
-            if status:
+            if status is not None:
                 query = query.filter(Artifact.status == status.value)
-            else:
-                query = query.filter(Artifact.status == ArtifactStatus.ACTIVE.value)
             results = query.all()
             logger.info(f"Retrieved {len(results)} artifacts for task {task_id}")
             return results
