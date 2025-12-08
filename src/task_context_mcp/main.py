@@ -9,7 +9,7 @@ not individual task instances. Artifacts store general practices, rules, prompts
 learnings that can be applied to any instance of that task type.
 """
 
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
@@ -209,7 +209,14 @@ def get_active_task_contexts() -> str:
 
 
 @mcp.tool
-def create_task_context(summary: str, description: str) -> str:
+def create_task_context(
+    summary: Annotated[
+        str, Field(description="Summary of the task context (task type)")
+    ],
+    description: Annotated[
+        str, Field(description="Detailed description of the task context")
+    ],
+) -> str:
     """
     Create a new task context (reusable task type).
 
@@ -218,10 +225,6 @@ def create_task_context(summary: str, description: str) -> str:
 
     Example: "Analyze applicant CV for Python developer of specific stack"
     NOT: "Analyze John's CV" (individual instance)
-
-    Args:
-        summary: Summary of the task context (task type)
-        description: Detailed description of the task context
     """
     try:
         task_context = db_manager.create_task_context(
@@ -236,20 +239,20 @@ def create_task_context(summary: str, description: str) -> str:
 
 @mcp.tool
 def get_artifacts_for_task_context(
-    task_context_id: str,
-    artifact_types: Optional[List[str]] = None,
-    include_archived: bool = False,
+    task_context_id: Annotated[str, Field(description="ID of the task context")],
+    artifact_types: Annotated[
+        Optional[List[str]],
+        Field(description="Types of artifacts to retrieve (optional, defaults to all)"),
+    ] = None,
+    include_archived: Annotated[
+        bool, Field(description="Whether to include archived artifacts")
+    ] = False,
 ) -> str:
     """
     Get all artifacts for a specific task context.
 
     This loads relevant context (practices, rules, prompts, learnings) for a task type.
     Use this when working on a task to retrieve all relevant artifacts.
-
-    Args:
-        task_context_id: ID of the task context
-        artifact_types: Types of artifacts to retrieve (optional, defaults to all)
-        include_archived: Whether to include archived artifacts (default: False)
     """
     try:
         # Convert string types to ArtifactType enums
@@ -293,7 +296,15 @@ def get_artifacts_for_task_context(
 
 @mcp.tool
 def create_artifact(
-    task_context_id: str, artifact_type: str, summary: str, content: str
+    task_context_id: Annotated[
+        str, Field(description="ID of the task context this artifact belongs to")
+    ],
+    artifact_type: Annotated[
+        str,
+        Field(description="Type of artifact: 'practice', 'rule', 'prompt', 'result'"),
+    ],
+    summary: Annotated[str, Field(description="Summary of the artifact")],
+    content: Annotated[str, Field(description="Full content of the artifact")],
 ) -> str:
     """
     Create a new artifact for a task context.
@@ -306,12 +317,6 @@ def create_artifact(
     - rule: Specific rules and constraints
     - prompt: Template prompts
     - result: General patterns/learnings from past work (NOT individual results)
-
-    Args:
-        task_context_id: ID of the task context this artifact belongs to
-        artifact_type: Type of artifact: 'practice', 'rule', 'prompt', 'result'
-        summary: Summary of the artifact
-        content: Full content of the artifact
     """
     try:
         # Validate artifact_type
@@ -333,18 +338,19 @@ def create_artifact(
 
 @mcp.tool
 def update_artifact(
-    artifact_id: str, summary: Optional[str] = None, content: Optional[str] = None
+    artifact_id: Annotated[str, Field(description="ID of the artifact to update")],
+    summary: Annotated[
+        Optional[str], Field(description="New summary for the artifact")
+    ] = None,
+    content: Annotated[
+        Optional[str], Field(description="New content for the artifact")
+    ] = None,
 ) -> str:
     """
     Update an existing artifact's summary and/or content.
 
     Use this to refine artifacts based on feedback or new learnings.
     At least one of summary or content must be provided.
-
-    Args:
-        artifact_id: ID of the artifact to update
-        summary: New summary for the artifact (optional)
-        content: New content for the artifact (optional)
     """
     try:
         if summary is None and content is None:
@@ -364,7 +370,13 @@ def update_artifact(
 
 
 @mcp.tool
-def archive_artifact(artifact_id: str, reason: Optional[str] = None) -> str:
+def archive_artifact(
+    artifact_id: Annotated[str, Field(description="ID of the artifact to archive")],
+    reason: Annotated[
+        Optional[str],
+        Field(description="Reason for archiving the artifact (recommended)"),
+    ] = None,
+) -> str:
     """
     Archive an artifact, marking it as no longer active.
 
@@ -375,10 +387,6 @@ def archive_artifact(artifact_id: str, reason: Optional[str] = None) -> str:
 
     Archived artifacts are excluded from active context loading but remain
     available for historical queries.
-
-    Args:
-        artifact_id: ID of the artifact to archive
-        reason: Reason for archiving the artifact (optional but recommended)
     """
     try:
         artifact = db_manager.archive_artifact(artifact_id=artifact_id, reason=reason)
@@ -394,7 +402,12 @@ def archive_artifact(artifact_id: str, reason: Optional[str] = None) -> str:
 
 
 @mcp.tool
-def search_artifacts(query: str, limit: int = 10) -> str:
+def search_artifacts(
+    query: Annotated[str, Field(description="Search query")],
+    limit: Annotated[
+        int, Field(description="Maximum number of results to return")
+    ] = 10,
+) -> str:
     """
     Search across all artifacts using full-text search.
 
@@ -405,10 +418,6 @@ def search_artifacts(query: str, limit: int = 10) -> str:
     - Getting inspiration from historical artifacts
 
     Returns results ranked by relevance score.
-
-    Args:
-        query: Search query
-        limit: Maximum number of results to return (default: 10)
     """
     try:
         if not query or not query.strip():
