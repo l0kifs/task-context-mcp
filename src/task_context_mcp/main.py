@@ -393,5 +393,10 @@ def search_artifacts(query: str, limit: int = 10) -> str:
         return f"Error searching artifacts: {str(e)}"
 
 
-if __name__ == "__main__":
+def run():
+    """Run the MCP server."""
     mcp.run()
+
+
+if __name__ == "__main__":
+    run()
