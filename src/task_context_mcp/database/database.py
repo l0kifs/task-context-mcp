@@ -6,8 +6,8 @@ from loguru import logger
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from ..config.settings import get_settings
-from .models import (
+from task_context_mcp.config.settings import get_settings
+from task_context_mcp.database.models import (
     Artifact,
     ArtifactStatus,
     ArtifactType,

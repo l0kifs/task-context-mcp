@@ -2,7 +2,7 @@ import sys
 
 from loguru import logger
 
-from .settings import get_settings
+from task_context_mcp.config.settings import get_settings
 
 settings = get_settings()
 
