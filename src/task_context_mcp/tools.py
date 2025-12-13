@@ -7,6 +7,14 @@ from task_context_mcp.database.models import ArtifactStatus, ArtifactType
 from task_context_mcp.server import mcp
 
 
+# Default artifact types to retrieve (excludes RESULT type)
+DEFAULT_ARTIFACT_TYPES = [
+    ArtifactType.PRACTICE,
+    ArtifactType.RULE,
+    ArtifactType.PROMPT,
+]
+
+
 # MCP Tools
 @mcp.tool
 def get_active_task_contexts() -> str:
@@ -102,11 +110,7 @@ def get_artifacts_for_task_context(
         # Convert string types to ArtifactType enums
         # Default to all types except RESULT
         if artifact_types is None:
-            artifact_type_enums = [
-                ArtifactType.PRACTICE,
-                ArtifactType.RULE,
-                ArtifactType.PROMPT,
-            ]
+            artifact_type_enums = DEFAULT_ARTIFACT_TYPES
         else:
             try:
                 artifact_type_enums = [ArtifactType(t) for t in artifact_types]
@@ -337,11 +341,7 @@ def reflect_and_update_artifacts(
         # Get current artifacts for this task context (excluding result type)
         artifacts = db_manager.get_artifacts_for_task_context(
             task_context_id=task_context_id,
-            artifact_types=[
-                ArtifactType.PRACTICE,
-                ArtifactType.RULE,
-                ArtifactType.PROMPT,
-            ],
+            artifact_types=DEFAULT_ARTIFACT_TYPES,
             status=ArtifactStatus.ACTIVE,
         )
 
