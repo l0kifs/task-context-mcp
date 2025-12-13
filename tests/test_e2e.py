@@ -826,3 +826,149 @@ class TestMCPToolsE2E:
         assert "CREATE new artifacts" in reflect_result.data
         assert "UPDATE existing artifacts" in reflect_result.data
         assert "ARCHIVE artifacts" in reflect_result.data
+
+    def test_get_artifacts_excludes_result_by_default(self, mcp_client):
+        """Test that get_artifacts_for_task_context excludes RESULT type by default."""
+        # Create task context
+        create_tc_result = mcp_client.call_tool(
+            "create_task_context",
+            {
+                "summary": "Default Filter Test Context",
+                "description": "For testing default artifact type filtering",
+            },
+        )
+        lines = create_tc_result.data.split("\n")
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
+
+        # Create artifacts of all types
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "practice",
+                "summary": "Test Practice",
+                "content": "Practice content",
+            },
+        )
+
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "rule",
+                "summary": "Test Rule",
+                "content": "Rule content",
+            },
+        )
+
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "prompt",
+                "summary": "Test Prompt",
+                "content": "Prompt content",
+            },
+        )
+
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "result",
+                "summary": "Test Result",
+                "content": "Result content - should not appear by default",
+            },
+        )
+
+        # Get artifacts without specifying types (should exclude result)
+        get_result = mcp_client.call_tool(
+            "get_artifacts_for_task_context", {"task_context_id": task_context_id}
+        )
+
+        # Should include practice, rule, and prompt
+        assert "Test Practice" in get_result.data
+        assert "Test Rule" in get_result.data
+        assert "Test Prompt" in get_result.data
+
+        # Should NOT include result
+        assert "Test Result" not in get_result.data
+        assert "Result content - should not appear by default" not in get_result.data
+
+        # Verify we can still explicitly request result type
+        get_all_result = mcp_client.call_tool(
+            "get_artifacts_for_task_context",
+            {
+                "task_context_id": task_context_id,
+                "artifact_types": ["practice", "rule", "prompt", "result"],
+            },
+        )
+
+        # Now should include all types
+        assert "Test Practice" in get_all_result.data
+        assert "Test Rule" in get_all_result.data
+        assert "Test Prompt" in get_all_result.data
+        assert "Test Result" in get_all_result.data
+
+    def test_reflect_and_update_excludes_result(self, mcp_client):
+        """Test that reflect_and_update_artifacts excludes RESULT type."""
+        # Create task context and artifacts
+        create_tc_result = mcp_client.call_tool(
+            "create_task_context",
+            {
+                "summary": "Reflection Filter Test Context",
+                "description": "For testing reflection artifact filtering",
+            },
+        )
+        lines = create_tc_result.data.split("\n")
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
+
+        # Create artifacts of all types
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "practice",
+                "summary": "Reflection Practice",
+                "content": "Practice content for reflection",
+            },
+        )
+
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "rule",
+                "summary": "Reflection Rule",
+                "content": "Rule content for reflection",
+            },
+        )
+
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "result",
+                "summary": "Reflection Result",
+                "content": "Result content - should not appear in reflection",
+            },
+        )
+
+        # Call reflect_and_update_artifacts
+        reflect_result = mcp_client.call_tool(
+            "reflect_and_update_artifacts",
+            {
+                "task_context_id": task_context_id,
+                "learnings": "Testing that result type artifacts are excluded from reflection",
+            },
+        )
+
+        # Should include practice and rule
+        assert "Reflection Practice" in reflect_result.data
+        assert "Reflection Rule" in reflect_result.data
+
+        # Should NOT include result
+        assert "Reflection Result" not in reflect_result.data
+        assert "Result content - should not appear in reflection" not in reflect_result.data
