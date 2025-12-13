@@ -1,5 +1,9 @@
 # Task Context MCP Server
 
+[![PyPI version](https://img.shields.io/pypi/v/task-context-mcp.svg)](https://pypi.org/project/task-context-mcp/)
+[![Python versions](https://img.shields.io/pypi/pyversions/task-context-mcp.svg)](https://pypi.org/project/task-context-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An MCP (Model Context Protocol) server for managing task contexts and artifacts to enable AI agents to autonomously manage and improve execution processes for repetitive task types.
 
 ## Overview
@@ -62,28 +66,14 @@ uv run pytest
 ### Running the MCP Server
 
 ```bash
-# Run as a module
-uv run python -m task_context_mcp.main
-
-# Or directly
+# Run directly
 uv run python src/task_context_mcp/main.py
+
+# Or with uv run script
+uv run task-context-mcp
 ```
 
 ### MCP Client Configuration
-
-#### For Claude Desktop
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "task-context": {
-      "command": "uv",
-      "args": ["run", "--project", "/path/to/task-context-mcp", "python", "-m", "task_context_mcp.main"]
-    }
-  }
-}
-```
 
 #### For VS Code/Cursor
 Add to your `.cursor/mcp.json`:
@@ -92,8 +82,8 @@ Add to your `.cursor/mcp.json`:
 {
   "mcpServers": {
     "task-context": {
-      "command": "uv",
-      "args": ["run", "--project", "/path/to/task-context-mcp", "python", "-m", "task_context_mcp.main"]
+      "command": "uvx",
+      "args": ["task-context-mcp"]
     }
   }
 }
