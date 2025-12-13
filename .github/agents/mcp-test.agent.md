@@ -1,4 +1,4 @@
 ---
-description: 'General purpose agent for exploring projects using Task Context MCP tools.'
+description: 'General purpose agent.'
 tools: ['task-context/*']
 ---
