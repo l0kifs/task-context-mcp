@@ -71,7 +71,13 @@ Summary: {task_context.summary}
 Description: {task_context.description}
 
 ⚠️ NEXT REQUIRED STEP: Now call create_artifact() to add initial practices, rules,
-or prompts to this task context BEFORE starting any task work. Do not proceed without artifacts."""
+or prompts to this task context BEFORE starting any task work. Do not proceed without artifacts.
+
+⚠️ DURING TASK: You MUST autonomously manage artifacts:
+• Create artifacts immediately when discovering patterns/mistakes/learnings
+• Update artifacts when you find they're incomplete or incorrect
+• Archive artifacts when they prove wrong or outdated
+• Call reflect_and_update_artifacts() before finishing the task"""
 
     except Exception as e:
         return f"Error creating task context: {str(e)}"
@@ -130,8 +136,13 @@ before starting task work. Do not proceed without establishing guidelines."""
             result += f"Created: {artifact.created_at}\n"
             result += "---\n"
 
-        result += "\n✅ Artifacts loaded successfully. Now use these to guide your task execution.\n"
-        result += "Remember to call create_artifact() during work when you discover new patterns/learnings."
+        result += "\n✅ Artifacts loaded successfully. Now use these to guide your task execution.\n\n"
+        result += "⚠️ CRITICAL REMINDERS:\n"
+        result += "• Call create_artifact() IMMEDIATELY when discovering patterns/learnings/mistakes\n"
+        result += "• Call update_artifact() IMMEDIATELY when you find artifacts are incomplete/wrong\n"
+        result += "• Call archive_artifact() IMMEDIATELY when artifacts prove incorrect/outdated\n"
+        result += "• Call reflect_and_update_artifacts() BEFORE saying task is finished\n"
+        result += "• DO NOT wait for user to ask - manage artifacts autonomously!\n"
 
         return result
 
@@ -152,7 +163,12 @@ def create_artifact(
     content: Annotated[str, Field(description="Full content of the artifact")],
 ) -> str:
     """
-    ⚠️ Call IMMEDIATELY when discovering patterns/learnings. Create DURING work, not at end.
+    ⚠️ REQUIRED during task execution when discovering patterns/learnings/mistakes.
+    Call IMMEDIATELY (not at task end) when you:
+    - Discover a pattern or best practice
+    - Learn something new about the task type
+    - Find a mistake/correction that others should know about
+    - Identify a rule or constraint
     Types: practice (guidelines), rule (constraints), prompt (templates), result (learnings).
     """
     try:
@@ -172,7 +188,8 @@ ID: {artifact.id}
 Type: {artifact.artifact_type}
 Summary: {artifact.summary}
 
-✅ Artifact saved. Continue creating artifacts as you discover more patterns/learnings during task execution."""
+✅ Artifact saved. Continue creating artifacts as you discover more patterns/learnings.
+⚠️ Remember: Before finishing the task, call reflect_and_update_artifacts() to ensure all learnings are captured."""
 
     except Exception as e:
         return f"Error creating artifact: {str(e)}"
@@ -189,8 +206,12 @@ def update_artifact(
     ] = None,
 ) -> str:
     """
-    Update artifact based on feedback/learnings. Use during work when refining understanding.
-    Provide summary and/or content.
+    ⚠️ REQUIRED when you discover an artifact needs improvement.
+    Update artifact immediately when:
+    - You find an existing practice/rule is incorrect or incomplete
+    - User feedback indicates an artifact needs refinement
+    - You learn something that improves an existing artifact
+    Use during work when refining understanding. Provide summary and/or content.
     """
     try:
         if summary is None and content is None:
@@ -201,7 +222,12 @@ def update_artifact(
         )
 
         if artifact:
-            return f"Artifact updated successfully:\nID: {artifact.id}\nSummary: {artifact.summary}"
+            return f"""Artifact updated successfully:
+ID: {artifact.id}
+Summary: {artifact.summary}
+
+✅ Update applied. Continue monitoring and updating artifacts as you discover more learnings.
+⚠️ Remember: Before finishing the task, call reflect_and_update_artifacts() to review all changes."""
         else:
             return f"Artifact not found: {artifact_id}"
 
@@ -218,15 +244,23 @@ def archive_artifact(
     ] = None,
 ) -> str:
     """
-    Archive outdated/problematic artifacts. Use when no longer effective or superseded.
-    Best practice: Create replacement first, then archive old. Provide reason.
+    ⚠️ REQUIRED when you discover an artifact is incorrect/outdated/problematic.
+    Archive immediately when:
+    - An artifact proves to be incorrect or misleading
+    - A practice/rule is superseded by a better approach
+    - User feedback indicates an artifact should no longer be used
+    Best practice: Create replacement first, then archive old. Always provide reason.
     """
     try:
         artifact = db_manager.archive_artifact(artifact_id=artifact_id, reason=reason)
 
         if artifact:
-            reason_msg = f" (Reason: {reason})" if reason else ""
-            return f"Artifact archived successfully:\nID: {artifact.id}\nReason: {artifact.archivation_reason}{reason_msg}"
+            return f"""Artifact archived successfully:
+ID: {artifact.id}
+Reason: {artifact.archivation_reason}
+
+✅ Artifact archived. If this was due to discovering it's incorrect, ensure you've created a replacement.
+⚠️ Remember: Before finishing the task, call reflect_and_update_artifacts() to review all changes."""
         else:
             return f"Artifact not found: {artifact_id}"
 
@@ -268,3 +302,80 @@ def search_artifacts(
 
     except Exception as e:
         return f"Error searching artifacts: {str(e)}"
+
+
+@mcp.tool
+def reflect_and_update_artifacts(
+    task_context_id: Annotated[
+        str, Field(description="ID of the task context used for this work")
+    ],
+    learnings: Annotated[
+        str,
+        Field(
+            description="What you learned during task execution (mistakes found, corrections made, patterns discovered, etc.)"
+        ),
+    ],
+) -> str:
+    """
+    ⚠️ MANDATORY after completing work or making corrections/mistakes.
+    Call when:
+    - Task is complete (before saying "finished")
+    - You discovered mistakes and corrected them
+    - You learned something important about the task type
+    - User provided feedback that improved your approach
+    
+    This tool helps you reflect on learnings and prompts you to update artifacts.
+    You MUST then call create_artifact/update_artifact/archive_artifact as needed.
+    """
+    try:
+        # Get current artifacts for this task context
+        artifacts = db_manager.get_artifacts_for_task_context(
+            task_context_id=task_context_id,
+            status=ArtifactStatus.ACTIVE,
+        )
+
+        result = f"""📊 REFLECTION CHECKPOINT - Task Context: {task_context_id}
+
+Your Learnings:
+{learnings}
+
+Current Active Artifacts ({len(artifacts)} total):
+"""
+        
+        if artifacts:
+            for artifact in artifacts:
+                result += f"\n- [{artifact.artifact_type}] {artifact.summary} (ID: {artifact.id})"
+        else:
+            result += "\n⚠️ NO ARTIFACTS EXIST YET!"
+
+        result += """
+
+⚠️⚠️⚠️ REQUIRED ACTIONS - DO NOT SKIP ⚠️⚠️⚠️
+
+Based on your learnings above, you MUST NOW:
+
+1. ✅ CREATE new artifacts for NEW learnings/patterns/mistakes discovered
+   → Call create_artifact() for each new practice, rule, or learning
+   → Example: If you found imports issue, create a rule about checking imports
+
+2. ✅ UPDATE existing artifacts that need improvement
+   → Call update_artifact() if existing artifacts were incomplete or wrong
+   → Use artifact IDs listed above
+
+3. ✅ ARCHIVE artifacts that proved incorrect or outdated
+   → Call archive_artifact() with clear reason for each obsolete artifact
+   → Example: If a rule was wrong, archive it and create a corrected version
+
+❌ DO NOT:
+- Say "I'll update artifacts" without actually calling the tools
+- Skip artifact management because "task is simple"
+- Wait for user to ask you to update artifacts
+- Finish the task without managing artifacts
+
+⏭️ NEXT STEP: Call the appropriate artifact management tools NOW.
+"""
+
+        return result
+
+    except Exception as e:
+        return f"Error during reflection: {str(e)}"

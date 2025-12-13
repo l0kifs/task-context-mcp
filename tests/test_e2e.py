@@ -44,8 +44,8 @@ class TestMCPToolsE2E:
         """Test that we can list available tools."""
         tools = mcp_client.list_tools()
 
-        # Should have 7 tools
-        assert len(tools) == 7
+        # Should have 8 tools (added reflect_and_update_artifacts)
+        assert len(tools) == 8
 
         tool_names = [tool["name"] for tool in tools]
         expected_tools = [
@@ -56,6 +56,7 @@ class TestMCPToolsE2E:
             "update_artifact",
             "archive_artifact",
             "search_artifacts",
+            "reflect_and_update_artifacts",
         ]
 
         for expected_tool in expected_tools:
@@ -770,3 +771,58 @@ class TestMCPToolsE2E:
         )
 
         assert "Artifact not found" in archive_result.data
+
+    def test_reflect_and_update_artifacts(self, mcp_client):
+        """Test the reflect_and_update_artifacts tool."""
+        # Create task context and artifacts
+        create_tc_result = mcp_client.call_tool(
+            "create_task_context",
+            {
+                "summary": "Reflection Test Context",
+                "description": "For testing reflection functionality",
+            },
+        )
+        lines = create_tc_result.data.split("\n")
+        task_context_id_line = [line for line in lines if line.startswith("ID:")][0]
+        task_context_id = task_context_id_line.split(": ")[1]
+
+        # Create some artifacts
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "practice",
+                "summary": "Test Practice",
+                "content": "Practice content",
+            },
+        )
+
+        mcp_client.call_tool(
+            "create_artifact",
+            {
+                "task_context_id": task_context_id,
+                "artifact_type": "rule",
+                "summary": "Test Rule",
+                "content": "Rule content",
+            },
+        )
+
+        # Call reflect_and_update_artifacts
+        reflect_result = mcp_client.call_tool(
+            "reflect_and_update_artifacts",
+            {
+                "task_context_id": task_context_id,
+                "learnings": "I discovered that the import checking process should be automated. Found several missed imports that needed correction.",
+            },
+        )
+
+        # Verify the response includes reflection prompts
+        assert "REFLECTION CHECKPOINT" in reflect_result.data
+        assert "Your Learnings:" in reflect_result.data
+        assert "Current Active Artifacts" in reflect_result.data
+        assert "Test Practice" in reflect_result.data
+        assert "Test Rule" in reflect_result.data
+        assert "REQUIRED ACTIONS" in reflect_result.data
+        assert "CREATE new artifacts" in reflect_result.data
+        assert "UPDATE existing artifacts" in reflect_result.data
+        assert "ARCHIVE artifacts" in reflect_result.data
