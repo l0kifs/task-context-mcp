@@ -1,5 +1,11 @@
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Cross-platform default data directory in user's home
+DEFAULT_DATA_DIR = str(Path.home() / ".task-context-mcp" / "data")
+DEFAULT_DB_PATH = str(Path.home() / ".task-context-mcp" / "data" / "task_context.db")
 
 
 class Settings(BaseSettings):
@@ -15,14 +21,18 @@ class Settings(BaseSettings):
     )
 
     # Application settings
-    app_name: str = Field(
-        default="task-context-mcp", description="Application name"
+    app_name: str = Field(default="task-context-mcp", description="Application name")
+    app_version: str = Field(default="0.1.1", description="Application version")
+    data_dir: str = Field(
+        default=DEFAULT_DATA_DIR,
+        description="Data directory path (default: ~/.task-context-mcp/data)",
     )
-    app_version: str = Field(default="0.1.0", description="Application version")
-    data_dir: str = Field(default="./data", description="Data directory path")
 
     # Database settings
-    database_url: str = Field(default="sqlite:///./data/task_context.db", description="Database URL")
+    database_url: str = Field(
+        default=f"sqlite:///{DEFAULT_DB_PATH}",
+        description="Database URL (default: ~/.task-context-mcp/data/task_context.db)",
+    )
 
     # Logging settings
     logging_level: str = Field(default="INFO", description="Logging level")

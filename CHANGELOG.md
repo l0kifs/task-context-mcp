@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - None yet
 
+## [0.1.1] - 2025-12-13
+
+### Changed
+- Improved documentation in README with simplified server run instructions using `uvx` command
+- Updated default data directory to use cross-platform user home directory (`~/.task-context-mcp/data`)
+
+### Fixed
+- Fixed directory creation to use `parents=True` in Path.mkdir() for proper nested directory handling
+- Fixed database initialization to ensure proper directory structure creation
+
 ## [0.1.0] - 2025-12-13
 
 ### Added
@@ -38,4 +48,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI/CD: GitHub Actions workflow for automated PyPI publishing
 - MIT License
 
+[0.1.1]: https://github.com/l0kifs/task-context-mcp/releases/tag/v0.1.1
 [0.1.0]: https://github.com/l0kifs/task-context-mcp/releases/tag/v0.1.0

@@ -22,7 +22,7 @@ class DatabaseManager:
 
     def __init__(self):
         self.settings = get_settings()
-        Path(self.settings.data_dir).mkdir(exist_ok=True)
+        Path(self.settings.data_dir).mkdir(parents=True, exist_ok=True)
         self.engine = create_engine(self.settings.database_url, echo=False)
         self.SessionLocal = sessionmaker(
             autocommit=False, autoflush=False, bind=self.engine
@@ -34,7 +34,7 @@ class DatabaseManager:
 
     def init_db(self):
         """Initialize the database by creating tables."""
-        Path(self.settings.data_dir).mkdir(exist_ok=True)
+        Path(self.settings.data_dir).mkdir(parents=True, exist_ok=True)
         self.create_tables()
         # Create FTS5 virtual table for full-text search
         with self.engine.connect() as conn:
