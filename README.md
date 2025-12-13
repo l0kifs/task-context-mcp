@@ -41,6 +41,7 @@ This MCP server provides a SQLite-based storage system that enables AI agents to
 5. **`update_artifact`** - Update an existing artifact's summary and/or content
 6. **`archive_artifact`** - Archive artifacts with optional reason
 7. **`search_artifacts`** - Full-text search across all artifacts
+8. **`reflect_and_update_artifacts`** - Reflect on learnings and get prompted to update artifacts
 
 ## Installation
 
@@ -148,6 +149,14 @@ Perform full-text search across all artifacts.
   - `query` (string): Search query
   - `limit` (integer): Maximum results (default: 10)
 - **Returns**: Matching artifacts ranked by relevance
+
+#### 8. `reflect_and_update_artifacts`
+Reflect on task execution learnings and get prompted to update artifacts autonomously.
+- **Parameters**:
+  - `task_context_id` (string): ID of the task context used for this work
+  - `learnings` (string): What was learned during task execution (mistakes, corrections, patterns, etc.)
+- **Returns**: Reflection summary with current artifacts and required actions
+- **Purpose**: Ensures agents autonomously manage artifacts by explicitly prompting them to create/update/archive based on their learnings
 
 ## Architecture
 
