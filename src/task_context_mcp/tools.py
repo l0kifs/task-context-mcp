@@ -2,28 +2,28 @@ from typing import Annotated, List, Optional
 
 from pydantic import Field
 
-from task_context_mcp.server import mcp
 from task_context_mcp.database import db_manager
 from task_context_mcp.database.models import ArtifactStatus, ArtifactType
+from task_context_mcp.server import mcp
 
 
 # MCP Tools
 @mcp.tool
 def get_active_task_contexts() -> str:
     """
-    Get all active task contexts in the system.
-
-    Returns a list of active task contexts with their metadata.
-    Task contexts represent reusable TASK TYPES (e.g., "CV analysis for Python developer"),
-    not individual task instances.
-
-    Use this to find if a matching task context already exists for your current work.
+    ⚠️ MANDATORY FIRST STEP: ALWAYS call BEFORE ANY task. ⚠️
+    Returns active task contexts (reusable task TYPES, not instances).
+    Required to check for existing practices/rules/learnings.
     """
     try:
         task_contexts = db_manager.get_active_task_contexts()
 
         if not task_contexts:
-            return "No active task contexts found."
+            return """No active task contexts found.
+
+⚠️ NEXT REQUIRED STEP: Since no existing task context matches your work,
+you MUST call create_task_context() to create a new task type before proceeding.
+Do NOT start task work without creating a context and adding initial artifacts."""
 
         result = "Active Task Contexts:\n\n"
         for tc in task_contexts:
@@ -33,6 +33,12 @@ def get_active_task_contexts() -> str:
             result += f"Created: {tc.creation_date}\n"
             result += f"Updated: {tc.updated_date}\n"
             result += "---\n"
+
+        result += (
+            "\n⚠️ NEXT REQUIRED STEP: If any context above matches your task type,\n"
+        )
+        result += "call get_artifacts_for_task_context(task_context_id) to load ALL artifacts\n"
+        result += "BEFORE starting work. If no match found, create a new context with create_task_context()."
 
         return result
 
@@ -50,20 +56,22 @@ def create_task_context(
     ],
 ) -> str:
     """
-    Create a new task context (reusable task type).
-
-    Use this when working on a type of task that doesn't exist yet in the system.
-    Task contexts represent categories of work, not individual instances.
-
-    Example: "Analyze applicant CV for Python developer of specific stack"
-    NOT: "Analyze John's CV" (individual instance)
+    ⚠️ REQUIRED when no match found. Create new task type (category, not instance).
+    Example: "CV analysis for Python dev" NOT "Analyze John's CV"
+    After creating: MUST call create_artifact() before starting work.
     """
     try:
         task_context = db_manager.create_task_context(
             summary=summary, description=description
         )
 
-        return f"Task context created successfully:\nID: {task_context.id}\nSummary: {task_context.summary}\nDescription: {task_context.description}"
+        return f"""Task context created successfully:
+ID: {task_context.id}
+Summary: {task_context.summary}
+Description: {task_context.description}
+
+⚠️ NEXT REQUIRED STEP: Now call create_artifact() to add initial practices, rules,
+or prompts to this task context BEFORE starting any task work. Do not proceed without artifacts."""
 
     except Exception as e:
         return f"Error creating task context: {str(e)}"
@@ -81,10 +89,8 @@ def get_artifacts_for_task_context(
     ] = False,
 ) -> str:
     """
-    Get all artifacts for a specific task context.
-
-    This loads relevant context (practices, rules, prompts, learnings) for a task type.
-    Use this when working on a task to retrieve all relevant artifacts.
+    ⚠️ REQUIRED after find/create context. Load ALL artifacts BEFORE work.
+    Call multiple times: at start, before major phases, when referencing patterns.
     """
     try:
         # Convert string types to ArtifactType enums
@@ -105,7 +111,11 @@ def get_artifacts_for_task_context(
 
         if not artifacts:
             status_msg = " (including archived)" if include_archived else ""
-            return f"No artifacts found for task context {task_context_id}{status_msg}."
+            return f"""No artifacts found for task context {task_context_id}{status_msg}.
+
+⚠️ ACTION REQUIRED: This task context has no artifacts yet.
+You MUST call create_artifact() to add initial practices, rules, or prompts
+before starting task work. Do not proceed without establishing guidelines."""
 
         result = f"Artifacts for task context {task_context_id}:\n\n"
         for artifact in artifacts:
@@ -119,6 +129,9 @@ def get_artifacts_for_task_context(
                 result += f"Archive Reason: {artifact.archivation_reason}\n"
             result += f"Created: {artifact.created_at}\n"
             result += "---\n"
+
+        result += "\n✅ Artifacts loaded successfully. Now use these to guide your task execution.\n"
+        result += "Remember to call create_artifact() during work when you discover new patterns/learnings."
 
         return result
 
@@ -139,16 +152,8 @@ def create_artifact(
     content: Annotated[str, Field(description="Full content of the artifact")],
 ) -> str:
     """
-    Create a new artifact for a task context.
-
-    Multiple artifacts of the same type can exist per task context.
-    Use this to add new practices, rules, prompts, or learnings.
-
-    Artifact types:
-    - practice: Best practices and guidelines
-    - rule: Specific rules and constraints
-    - prompt: Template prompts
-    - result: General patterns/learnings from past work (NOT individual results)
+    ⚠️ Call IMMEDIATELY when discovering patterns/learnings. Create DURING work, not at end.
+    Types: practice (guidelines), rule (constraints), prompt (templates), result (learnings).
     """
     try:
         # Validate artifact_type
@@ -162,7 +167,12 @@ def create_artifact(
             content=content,
         )
 
-        return f"Artifact created successfully:\nID: {artifact.id}\nType: {artifact.artifact_type}\nSummary: {artifact.summary}"
+        return f"""Artifact created successfully:
+ID: {artifact.id}
+Type: {artifact.artifact_type}
+Summary: {artifact.summary}
+
+✅ Artifact saved. Continue creating artifacts as you discover more patterns/learnings during task execution."""
 
     except Exception as e:
         return f"Error creating artifact: {str(e)}"
@@ -179,10 +189,8 @@ def update_artifact(
     ] = None,
 ) -> str:
     """
-    Update an existing artifact's summary and/or content.
-
-    Use this to refine artifacts based on feedback or new learnings.
-    At least one of summary or content must be provided.
+    Update artifact based on feedback/learnings. Use during work when refining understanding.
+    Provide summary and/or content.
     """
     try:
         if summary is None and content is None:
@@ -210,15 +218,8 @@ def archive_artifact(
     ] = None,
 ) -> str:
     """
-    Archive an artifact, marking it as no longer active.
-
-    Use this when:
-    - An artifact is no longer relevant or has been superseded
-    - User feedback indicates an artifact should be replaced
-    - Analysis shows an artifact is causing issues
-
-    Archived artifacts are excluded from active context loading but remain
-    available for historical queries.
+    Archive outdated/problematic artifacts. Use when no longer effective or superseded.
+    Best practice: Create replacement first, then archive old. Provide reason.
     """
     try:
         artifact = db_manager.archive_artifact(artifact_id=artifact_id, reason=reason)
@@ -241,15 +242,8 @@ def search_artifacts(
     ] = 10,
 ) -> str:
     """
-    Search across all artifacts using full-text search.
-
-    This enables finding similar past learnings, practices, or rules.
-    Useful for:
-    - Finding relevant context for new task contexts
-    - Discovering similar approaches from past work
-    - Getting inspiration from historical artifacts
-
-    Returns results ranked by relevance score.
+    FTS5 search across artifacts. Find similar learnings/practices before creating new.
+    Returns results ranked by relevance.
     """
     try:
         if not query or not query.strip():
