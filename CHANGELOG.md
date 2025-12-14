@@ -16,6 +16,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - None yet
 
+## [0.1.3] - 2025-12-14
+
+### Added
+- Enhanced agent instructions with content quality guidelines
+- Comprehensive examples of generalizable patterns vs iteration-specific details
+- SVG assets for banner and logo
+- Content length and language constraints in agent instructions:
+  - Summary: max 200 characters
+  - Description: max 1000 characters
+  - Content: max 4000 characters
+
+### Changed
+- Enhanced server instructions based on agent guidelines
+- Improved tool responses with content quality requirements
+- Updated README with latest command arguments
+
 ## [0.1.2] - 2025-12-14
 
 ### Added
