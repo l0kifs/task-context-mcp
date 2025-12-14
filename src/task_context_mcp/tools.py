@@ -6,7 +6,6 @@ from task_context_mcp.database import db_manager
 from task_context_mcp.database.models import ArtifactStatus, ArtifactType
 from task_context_mcp.server import mcp
 
-
 # Default artifact types to retrieve (excludes RESULT type)
 DEFAULT_ARTIFACT_TYPES = [
     ArtifactType.PRACTICE,
@@ -57,18 +56,32 @@ Do NOT start task work without creating a context and adding initial artifacts."
 @mcp.tool
 def create_task_context(
     summary: Annotated[
-        str, Field(description="Summary of the task context (task type)")
+        str,
+        Field(
+            description="Summary of the task context (task type) - max 200 chars, English only"
+        ),
     ],
     description: Annotated[
-        str, Field(description="Detailed description of the task context")
+        str,
+        Field(
+            description="Detailed description of the task context - max 1000 chars, English only"
+        ),
     ],
 ) -> str:
     """
     ⚠️ REQUIRED when no match found. Create new task type (category, not instance).
     Example: "CV analysis for Python dev" NOT "Analyze John's CV"
+
+    CONTENT REQUIREMENTS:
+    - English only (Latin characters)
+    - Summary: max 200 characters
+    - Description: max 1000 characters
+    - Focus on the TASK TYPE, not specific instances
+
     After creating: MUST call create_artifact() before starting work.
     """
     try:
+        # Validation is handled by Pydantic models in the MCP layer
         task_context = db_manager.create_task_context(
             summary=summary, description=description
         )
@@ -96,7 +109,9 @@ def get_artifacts_for_task_context(
     task_context_id: Annotated[str, Field(description="ID of the task context")],
     artifact_types: Annotated[
         Optional[List[str]],
-        Field(description="Types of artifacts to retrieve (optional, defaults to all except 'result')"),
+        Field(
+            description="Types of artifacts to retrieve (optional, defaults to all except 'result')"
+        ),
     ] = None,
     include_archived: Annotated[
         bool, Field(description="Whether to include archived artifacts")
@@ -151,7 +166,9 @@ before starting task work. Do not proceed without establishing guidelines."""
         result += "• Call create_artifact() IMMEDIATELY when discovering patterns/learnings/mistakes\n"
         result += "• Call update_artifact() IMMEDIATELY when you find artifacts are incomplete/wrong\n"
         result += "• Call archive_artifact() IMMEDIATELY when artifacts prove incorrect/outdated\n"
-        result += "• Call reflect_and_update_artifacts() BEFORE saying task is finished\n"
+        result += (
+            "• Call reflect_and_update_artifacts() BEFORE saying task is finished\n"
+        )
         result += "• DO NOT wait for user to ask - manage artifacts autonomously!\n"
 
         return result
@@ -169,8 +186,16 @@ def create_artifact(
         str,
         Field(description="Type of artifact: 'practice', 'rule', 'prompt', 'result'"),
     ],
-    summary: Annotated[str, Field(description="Summary of the artifact")],
-    content: Annotated[str, Field(description="Full content of the artifact")],
+    summary: Annotated[
+        str,
+        Field(description="Summary of the artifact - max 200 chars, English only"),
+    ],
+    content: Annotated[
+        str,
+        Field(
+            description="Full content of the artifact - max 4000 chars, English only"
+        ),
+    ],
 ) -> str:
     """
     ⚠️ REQUIRED during task execution when discovering patterns/learnings/mistakes.
@@ -179,12 +204,22 @@ def create_artifact(
     - Learn something new about the task type
     - Find a mistake/correction that others should know about
     - Identify a rule or constraint
+
+    CONTENT REQUIREMENTS:
+    - English only (Latin characters)
+    - Summary: max 200 characters
+    - Content: max 4000 characters (≈500-700 words)
+    - Store GENERALIZABLE patterns, not specific iteration details
+    - Focus on WHAT and WHY, not specific names/dates/iteration numbers
+
     Types: practice (guidelines), rule (constraints), prompt (templates), result (learnings).
     """
     try:
         # Validate artifact_type
         if artifact_type not in [t.value for t in ArtifactType]:
             return f"Invalid artifact type: {artifact_type}. Must be one of: {[t.value for t in ArtifactType]}"
+
+        # Validation for length and language is handled by Pydantic models in the MCP layer
 
         artifact = db_manager.create_artifact(
             task_context_id=task_context_id,
@@ -209,10 +244,14 @@ Summary: {artifact.summary}
 def update_artifact(
     artifact_id: Annotated[str, Field(description="ID of the artifact to update")],
     summary: Annotated[
-        Optional[str], Field(description="New summary for the artifact")
+        Optional[str],
+        Field(description="New summary for the artifact - max 200 chars, English only"),
     ] = None,
     content: Annotated[
-        Optional[str], Field(description="New content for the artifact")
+        Optional[str],
+        Field(
+            description="New content for the artifact - max 4000 chars, English only"
+        ),
     ] = None,
 ) -> str:
     """
@@ -221,6 +260,14 @@ def update_artifact(
     - You find an existing practice/rule is incorrect or incomplete
     - User feedback indicates an artifact needs refinement
     - You learn something that improves an existing artifact
+
+    CONTENT REQUIREMENTS:
+    - English only (Latin characters)
+    - Summary: max 200 characters
+    - Content: max 4000 characters (≈500-700 words)
+    - Store GENERALIZABLE patterns, not specific iteration details
+    - Focus on WHAT and WHY, not specific names/dates/iteration numbers
+
     Use during work when refining understanding. Provide summary and/or content.
     """
     try:
@@ -333,7 +380,7 @@ def reflect_and_update_artifacts(
     - You discovered mistakes and corrected them
     - You learned something important about the task type
     - User provided feedback that improved your approach
-    
+
     This tool helps you reflect on learnings and prompts you to update artifacts.
     You MUST then call create_artifact/update_artifact/archive_artifact as needed.
     """
@@ -352,7 +399,7 @@ Your Learnings:
 
 Current Active Artifacts ({len(artifacts)} total):
 """
-        
+
         if artifacts:
             for artifact in artifacts:
                 result += f"\n- [{artifact.artifact_type}] {artifact.summary} (ID: {artifact.id})"

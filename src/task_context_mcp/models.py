@@ -1,4 +1,5 @@
 from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -6,9 +7,13 @@ from pydantic import BaseModel, Field
 class TaskContextCreateRequest(BaseModel):
     """Request model for creating a new task context."""
 
-    summary: str = Field(..., description="Summary of the task context (task type)")
+    summary: str = Field(
+        ...,
+        description="Summary of the task context (task type) - max 200 chars",
+    )
     description: str = Field(
-        ..., description="Detailed description of the task context"
+        ...,
+        description="Detailed description of the task context - max 1000 chars",
     )
 
 
@@ -21,16 +26,28 @@ class ArtifactCreateRequest(BaseModel):
     artifact_type: str = Field(
         ..., description="Type of artifact: 'practice', 'rule', 'prompt', 'result'"
     )
-    summary: str = Field(..., description="Summary of the artifact")
-    content: str = Field(..., description="Full content of the artifact")
+    summary: str = Field(
+        ...,
+        description="Summary of the artifact - max 200 chars",
+    )
+    content: str = Field(
+        ...,
+        description="Full content of the artifact - max 4000 chars",
+    )
 
 
 class ArtifactUpdateRequest(BaseModel):
     """Request model for updating an artifact."""
 
     artifact_id: str = Field(..., description="ID of the artifact to update")
-    summary: Optional[str] = Field(None, description="New summary for the artifact")
-    content: Optional[str] = Field(None, description="New content for the artifact")
+    summary: Optional[str] = Field(
+        None,
+        description="New summary for the artifact - max 200 chars",
+    )
+    content: Optional[str] = Field(
+        None,
+        description="New content for the artifact - max 4000 chars",
+    )
 
 
 class ArtifactArchiveRequest(BaseModel):

@@ -56,14 +56,14 @@ class TaskContext(Base):
         doc="Unique identifier for the task context",
     )
     summary = Column(
-        String,
+        String(200),
         nullable=False,
-        doc="Summary of the task context. Used by agent to identify the task type",
+        doc="Summary of the task context. Max 200 chars. Used by agent to identify the task type",
     )
     description = Column(
-        Text,
+        String(1000),
         nullable=False,
-        doc="Detailed description of the task context. Used by agent to identify the task type",
+        doc="Detailed description of the task context. Max 1000 chars. Used by agent to identify the task type",
     )
     creation_date = Column(
         DateTime,
@@ -109,9 +109,15 @@ class Artifact(Base):
         doc="Unique identifier for the artifact",
     )
     summary = Column(
-        Text, nullable=False, doc="Summary of the artifact. Used for quick reference"
+        String(200),
+        nullable=False,
+        doc="Summary of the artifact. Max 200 chars. Used for quick reference",
     )
-    content = Column(Text, nullable=False, doc="Full content of the artifact")
+    content = Column(
+        String(4000),
+        nullable=False,
+        doc="Full content of the artifact. Max 4000 chars (500-700 words)",
+    )
     task_context_id = Column(
         String,
         ForeignKey("task_contexts.id"),

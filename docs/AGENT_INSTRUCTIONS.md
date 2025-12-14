@@ -30,6 +30,37 @@
 - **Search first:** Check existing artifacts before creating duplicates
 - **Immediate capture:** Create artifacts when learning, not at task end
 
+## Content Quality Guidelines
+
+### Language & Length Constraints
+- **Language:** English only (Latin characters)
+- **Summary:** Max 200 characters
+- **Description:** Max 1000 characters (task contexts)
+- **Artifact content:** Max 4000 characters (~500-700 words)
+
+### Generalizable Patterns (NOT Specific Details)
+✅ **DO store:**
+- Patterns and templates applicable to future work
+- "Check import statements before running Python scripts"
+- "Always validate user input for SQL injection vulnerabilities"
+- "Use error handling pattern: try-except with specific exceptions"
+
+❌ **DON'T store:**
+- Iteration-specific details: "Fixed bug in iteration 3"
+- Personal names or dates: "John updated this on 2024-03-15"
+- One-off solutions: "Changed line 42 in user_service.py"
+- Project-specific file paths: "Modified /home/user/project/file.py"
+
+### Focus on WHAT & WHY, Not HOW (specifics)
+- **Good:** "Always validate API responses before processing to prevent null reference errors"
+- **Bad:** "Fixed the bug where response.data was null in the getUserProfile function"
+
+### Keep Content Concise
+- Use bullet points and clear structure
+- Remove redundant explanations
+- Focus on actionable information
+- Break long content into multiple artifacts
+
 ## Common Mistakes
 
 ❌ "I'll check if needed" → Always check first
@@ -39,5 +70,8 @@
 ❌ "I know better" → Artifacts contain validated learnings
 ❌ "Task finished" without reflection → Must call `reflect_and_update_artifacts()` first
 ❌ "Fixed mistakes" without updating artifacts → Create/update artifacts for each learning
+❌ Storing iteration details → Store generalizable patterns only
+❌ Non-English content → All content must be in English
+❌ Exceeding length limits → Keep summaries <200, content <4000 chars
 
 ---
