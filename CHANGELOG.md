@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - None yet
 
+## [0.1.5] - 2025-12-14
+
+### Fixed
+- Fixed "Alembic configuration not found" error when running as installed package
+- Included alembic.ini and alembic/ directory in package distribution
+- Enhanced migrations.py to locate alembic.ini in both development and installed package environments
+
 ## [0.1.4] - 2025-12-14
 
 ### Added
