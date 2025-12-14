@@ -55,6 +55,9 @@ Changelog = "https://github.com/l0kifs/task-context-mcp/blob/main/CHANGELOG.md"
 [project.scripts]
 task-context-mcp = "task_context_mcp.main:run"
 
+[tool.uv]
+package = true
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.1",

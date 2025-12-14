@@ -10,8 +10,15 @@ from alembic import command
 
 def get_alembic_config() -> Config:
     """Get Alembic configuration."""
+    # Try to find alembic.ini in the project root (for development)
     project_root = Path(__file__).parent.parent.parent.parent
     alembic_ini = project_root / "alembic.ini"
+
+    # If not found, try to find it in the package installation directory
+    if not alembic_ini.exists():
+        # When installed as a package, look relative to the package location
+        package_root = Path(__file__).parent.parent
+        alembic_ini = package_root / "alembic.ini"
 
     if not alembic_ini.exists():
         raise FileNotFoundError(
@@ -20,6 +27,12 @@ def get_alembic_config() -> Config:
         )
 
     alembic_cfg = Config(str(alembic_ini))
+
+    # Set the script location to find the alembic directory
+    alembic_dir = alembic_ini.parent / "alembic"
+    if alembic_dir.exists():
+        alembic_cfg.set_main_option("script_location", str(alembic_dir))
+
     return alembic_cfg
 
 
