@@ -22,14 +22,22 @@ The project is configured to automatically publish to PyPI when a new GitHub rel
    version = "0.2.0"  # Update to your new version
    ```
 
-2. **Commit and push** your changes:
+2. **Update version** in `src/task_context_mcp/config/settings.py`:
+   ```python
+   app_version: str = Field(default="0.2.0", description="Application version")
+  # Update to your new version
+   ```
+
+3. **Update CHANGELOG.md** with the new version changes and link for release.
+
+4. **Commit and push** your changes:
    ```bash
    git add pyproject.toml
    git commit -m "Bump version to 0.2.0"
    git push
    ```
 
-3. **Create a GitHub release**:
+5. **Create a GitHub release**:
    
    Using GitHub CLI (recommended):
    ```bash
@@ -49,7 +57,7 @@ The project is configured to automatically publish to PyPI when a new GitHub rel
    gh release view v0.2.0
    ```
 
-4. **GitHub Actions will automatically**:
+6. **GitHub Actions will automatically**:
    - Build the package using UV
    - Publish to PyPI using trusted publishing
    - You can monitor the progress in the Actions tab
