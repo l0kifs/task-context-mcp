@@ -7,6 +7,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from task_context_mcp.config.settings import get_settings
+from task_context_mcp.database.migrations import run_migrations
 from task_context_mcp.database.models import (
     Artifact,
     ArtifactStatus,
@@ -29,13 +30,47 @@ class DatabaseManager:
         )
 
     def create_tables(self):
-        """Create all tables in the database."""
+        """
+        Create all tables in the database using SQLAlchemy metadata.
+
+        This method is used for:
+        - In-memory databases (tests)
+        - Fallback when Alembic migrations fail
+
+        For file-based databases, init_db() runs Alembic migrations instead.
+        """
         Base.metadata.create_all(bind=self.engine)
 
     def init_db(self):
-        """Initialize the database by creating tables."""
+        """
+        Initialize the database by running migrations.
+
+        Uses Alembic to apply all pending migrations, ensuring the database
+        schema is up-to-date with the latest model definitions.
+        For in-memory databases, falls back to direct table creation.
+        """
         Path(self.settings.data_dir).mkdir(parents=True, exist_ok=True)
-        self.create_tables()
+        logger.info("Initializing database with migrations...")
+
+        # Check if using in-memory database (common in tests)
+        is_memory_db = ":memory:" in str(self.settings.database_url)
+
+        if is_memory_db:
+            # For in-memory databases, use direct table creation
+            # Alembic migrations don't work well with in-memory SQLite
+            logger.debug("Using in-memory database, creating tables directly")
+            self.create_tables()
+        else:
+            try:
+                # Run Alembic migrations to ensure schema is up-to-date
+                run_migrations()
+            except Exception as e:
+                logger.warning(
+                    f"Migration failed, falling back to direct table creation: {e}"
+                )
+                # Fallback to direct table creation for backward compatibility
+                self.create_tables()
+
         # Create FTS5 virtual table for full-text search
         with self.engine.connect() as conn:
             conn.execute(
@@ -46,6 +81,7 @@ class DatabaseManager:
             """)
             )
             conn.commit()
+        logger.info("Database initialization completed")
 
     @contextmanager
     def get_session(self):

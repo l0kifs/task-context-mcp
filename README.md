@@ -178,17 +178,22 @@ Reflect on task execution learnings and get prompted to update artifacts autonom
 - **artifacts**: Artifact storage with lifecycle management (multiple per type per context)
 - **artifacts_fts**: FTS5 virtual table for full-text search indexing
 
+**Database Migrations**: The project uses [Alembic](https://alembic.sqlalchemy.org/) for automatic schema migrations. When you modify the database models, Alembic automatically detects changes and updates the database. See [docs/MIGRATIONS.md](docs/MIGRATIONS.md) for details.
+
 ### Key Components
 
 - `src/task_context_mcp/main.py`: MCP server implementation with FastMCP
 - `src/task_context_mcp/database/models.py`: SQLAlchemy ORM models
 - `src/task_context_mcp/database/database.py`: Database operations and FTS5 management
+- `src/task_context_mcp/database/migrations.py`: Alembic migration utilities
 - `src/task_context_mcp/config/`: Configuration management with Pydantic settings
+- `alembic/`: Database migration scripts and configuration
 
 ### Technology Stack
 
 - **Database**: SQLite 3.35+ with FTS5 extension
 - **ORM**: SQLAlchemy 2.0+ for type-safe database operations
+- **Migrations**: Alembic 1.17+ for automatic schema migrations
 - **MCP Framework**: FastMCP for Model Context Protocol implementation
 - **Configuration**: Pydantic Settings for environment-based config
 - **Logging**: Loguru for structured, multi-level logging
