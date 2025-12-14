@@ -96,7 +96,7 @@ Add to your `.cursor/mcp.json`:
   "mcpServers": {
     "task-context": {
       "command": "uvx",
-      "args": ["task-context-mcp"]
+      "args": ["task-context-mcp@latest"]
     }
   }
 }
