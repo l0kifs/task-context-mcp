@@ -1,8 +1,20 @@
-# Task Context MCP Server
+<div align="center">
+  <img src="assets/banner.svg" alt="Task Context MCP Server Banner" width="100%">
+  
+  <p align="center">
+    <a href="https://pypi.org/project/task-context-mcp/">
+      <img src="https://img.shields.io/pypi/v/task-context-mcp.svg" alt="PyPI version">
+    </a>
+    <a href="https://pypi.org/project/task-context-mcp/">
+      <img src="https://img.shields.io/pypi/pyversions/task-context-mcp.svg" alt="Python versions">
+    </a>
+    <a href="https://opensource.org/licenses/MIT">
+      <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+    </a>
+  </p>
+</div>
 
-[![PyPI version](https://img.shields.io/pypi/v/task-context-mcp.svg)](https://pypi.org/project/task-context-mcp/)
-[![Python versions](https://img.shields.io/pypi/pyversions/task-context-mcp.svg)](https://pypi.org/project/task-context-mcp/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+# Task Context MCP Server
 
 An MCP (Model Context Protocol) server for managing task contexts and artifacts to enable AI agents to autonomously manage and improve execution processes for repetitive task types.
 

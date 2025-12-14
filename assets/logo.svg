@@ -1,0 +1,36 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#60A5FA;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#A78BFA;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Main circle background -->
+  <circle cx="60" cy="60" r="58" fill="url(#bgGradient)"/>
+  
+  <!-- Database/Storage layers (bottom) -->
+  <ellipse cx="60" cy="72" rx="28" ry="8" fill="#ffffff" opacity="0.3"/>
+  <ellipse cx="60" cy="68" rx="28" ry="8" fill="#ffffff" opacity="0.4"/>
+  <ellipse cx="60" cy="64" rx="28" ry="8" fill="#ffffff" opacity="0.5"/>
+  
+  <!-- Task context cards (stacked documents) -->
+  <rect x="38" y="32" width="36" height="28" rx="3" fill="#ffffff" opacity="0.25" transform="rotate(-5 56 46)"/>
+  <rect x="40" y="34" width="36" height="28" rx="3" fill="#ffffff" opacity="0.5" transform="rotate(-2 58 48)"/>
+  <rect x="42" y="36" width="36" height="28" rx="3" fill="#ffffff" opacity="0.9"/>
+  
+  <!-- Checkmarks on top card -->
+  <path d="M 48 46 L 51 49 L 56 43" stroke="#3B82F6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M 48 53 L 51 56 L 56 50" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Connection nodes (MCP) -->
+  <circle cx="30" cy="60" r="5" fill="#ffffff" opacity="0.9"/>
+  <circle cx="90" cy="60" r="5" fill="#ffffff" opacity="0.9"/>
+  <line x1="35" y1="60" x2="45" y2="60" stroke="#ffffff" stroke-width="2" opacity="0.7" stroke-dasharray="3,3"/>
+  <line x1="75" y1="60" x2="85" y2="60" stroke="#ffffff" stroke-width="2" opacity="0.7" stroke-dasharray="3,3"/>
+</svg>
