@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - None yet
 
+## [0.1.4] - 2025-12-14
+
+### Added
+- Automatic database migrations using Alembic for SQLAlchemy models
+- Migration utilities: `src/task_context_mcp/database/migrations.py` (programmatic control for creating/applying/downgrading migrations)
+- Initial Alembic migration script under `alembic/versions/` to capture current schema
+- `docs/MIGRATIONS.md` with migration usage, best practices, and troubleshooting
+- Tests for migration utilities and workflow: `tests/test_migrations_utils.py` and `test_migrations.py`
+
+### Changed
+- `DatabaseManager.init_db()` now runs Alembic migrations automatically for file-based databases and falls back to direct table creation for in-memory DBs
+- Clarified `create_tables()` docstring to describe its intended use (tests and fallback)
+- Updated `README.md` with migration information and references to the migrations guide
+
+### Fixed
+- Ensure in-memory SQLite test compatibility by creating tables directly during tests when migrations aren't viable
+- All tests passing after migration integration
+
+
 ## [0.1.3] - 2025-12-14
 
 ### Added
