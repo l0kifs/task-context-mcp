@@ -16,6 +16,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - None yet
 
+## [0.1.2] - 2025-12-14
+
+### Added
+- New `reflect_and_update_artifacts` tool for enforcing autonomous artifact management
+- Explicit reflection checkpoints that prompt agents to create/update/archive artifacts based on learnings
+- Enhanced test coverage with 206 new lines of tests for reflection and filtering functionality
+
+### Changed
+- Default artifact retrieval now excludes RESULT type artifacts (only includes PRACTICE, RULE, PROMPT)
+- Improved artifact management prompts with more explicit instructions for autonomous updates
+- Enhanced agent instructions emphasizing reflection before task completion
+- Updated tool responses with clearer reminders to call `reflect_and_update_artifacts()` before finishing
+
+### Fixed
+- None
+
 ## [0.1.1] - 2025-12-13
 
 ### Changed
