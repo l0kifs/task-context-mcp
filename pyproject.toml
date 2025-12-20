@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "task-context-mcp"
-version = "0.1.5"
+version = "0.1.6"
 description = "MCP server for managing task contexts."
 readme = "README.md"
 requires-python = ">=3.12"

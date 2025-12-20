@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     # Application settings
     app_name: str = Field(default="task-context-mcp", description="Application name")
-    app_version: str = Field(default="0.1.5", description="Application version")
+    app_version: str = Field(default="0.1.6", description="Application version")
     data_dir: str = Field(
         default=DEFAULT_DATA_DIR,
         description="Data directory path (default: ~/.task-context-mcp/data)",

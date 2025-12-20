@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - None yet
 
+## [0.1.6] - 2025-12-20
+
+### Changed
+- Simplified agent instructions and workflow documentation
+- Streamlined server and tool implementations for better maintainability
+
+### Fixed
+- Removed duplicate Alembic configuration files from project root (kept proper location in src/task_context_mcp/)
+- Cleaned up redundant data/.gitkeep file
+
 ## [0.1.5] - 2025-12-14
 
 ### Fixed
