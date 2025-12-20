@@ -6,72 +6,56 @@
 
 # Agent Instructions - Task Context MCP Server
 
-## 🔴 MANDATORY WORKFLOW FOR ALL TASKS 🔴
+## 🤖 Role & Purpose
+You use this server to **retrieve and maintain reusable knowledge** for task *types* (not task instances). Your job is to:
+- Load existing guidance before acting
+- Capture new reusable guidance immediately
+- Keep guidance accurate via updates/archival
 
-## REQUIRED WORKFLOW (NO EXCEPTIONS):
+## 🔄 Mandatory Workflow (Every Task)
 
-**1. ALWAYS START:** Call `get_active_task_contexts()` BEFORE any work
-**2. LOAD CONTEXT:**
-   - Match found? → `get_artifacts_for_task_context(id)` → Review artifacts → Start work
-   - No match? → `create_task_context()` → `create_artifact()` → Start work
-**3. DURING WORK:** Call `create_artifact()` immediately when discovering patterns/learnings
-**4. AFTER FEEDBACK:** Call `update_artifact()` or `archive_artifact()` based on learnings
-**5. BEFORE FINISHING:** Call `reflect_and_update_artifacts()` to review learnings and manage artifacts
+1) **Discovery (Start)**
+- Call `get_active_task_contexts()` first.
+- If a context matches: call `get_artifacts_for_task_context(task_context_id)` and follow the artifacts.
+- If none match: call `create_task_context(summary, description)`.
+- Before doing work in a new context: call `create_artifact(...)` to add initial rules/practices/prompts.
 
-**DO NOT:** Skip step 1, start without artifacts, wait until end to create artifacts, ignore loaded artifacts, treat as optional.
+2) **Execution & Learning (During)**
+- Do the task using the loaded artifacts.
+- Create artifacts immediately for new patterns/learnings: `create_artifact(...)`.
+- If you might be duplicating guidance: call `search_artifacts()` first; prefer `update_artifact(...)`.
 
-**VERIFY:** ✅ First call is `get_active_task_contexts()` ✅ Artifacts loaded before work ✅ New artifacts created during (not after) work ✅ `reflect_and_update_artifacts()` called before finishing
+3) **Mistakes & Feedback (Any Time)**
+- If the user explicitly says you made a mistake or asks for a redo/change:
+   - Acknowledge the mistake.
+   - Create/update/archive artifacts so the mistake is less likely to recur.
+- If feedback changes what is correct: update or archive the relevant artifact(s) promptly.
 
-## Best Practices
+4) **Reflection (Finish)**
+- Before saying you are done: call `reflect_and_update_artifacts(task_context_id, learnings)`.
+- Then call `create_artifact(...)`, `update_artifact(...)`, and/or `archive_artifact(...)` as prompted.
 
-- **Specific summaries:** "CV analysis for Python/Django dev" not "Analyze CV"
-- **Granular artifacts:** Separate artifacts per aspect, not one massive file
-- **Archive workflow:** Create new → Archive old (with reason)
-- **Search first:** Check existing artifacts before creating duplicates
-- **Immediate capture:** Create artifacts when learning, not at task end
+## 🧭 When Artifacts Conflict
+If artifacts conflict, follow the strictest constraint: `rule` > `practice` > `prompt` > `result`.
+If ambiguity remains, ask a clarifying question and/or create an artifact documenting the resolution.
 
-## Content Quality Guidelines
+## ✅ Best Practices (Keep It High-Signal)
+- Use specific summaries (task types): "CV analysis for Python/Django dev" not "Analyze CV".
+- Keep artifacts granular (one concept per artifact).
+- Archive workflow: create replacement → archive old (with reason).
+- Search first: avoid duplicate artifacts.
+- Capture learnings immediately (not at the end).
 
-### Language & Length Constraints
-- **Language:** English only (Latin characters)
-- **Summary:** Max 200 characters
-- **Description:** Max 1000 characters (task contexts)
-- **Artifact content:** Max 4000 characters (~500-700 words)
+## ✍️ Content Requirements
+- English only (Latin characters)
+- Summary <= 200 chars
+- Task context description <= 1000 chars
+- Artifact content <= 4000 chars
+- Store generalizable guidance (WHAT/WHY), not instance specifics (names, dates, file paths, line numbers, or one-off fixes)
 
-### Generalizable Patterns (NOT Specific Details)
-✅ **DO store:**
-- Patterns and templates applicable to future work
-- "Check import statements before running Python scripts"
-- "Always validate user input for SQL injection vulnerabilities"
-- "Use error handling pattern: try-except with specific exceptions"
-
-❌ **DON'T store:**
-- Iteration-specific details: "Fixed bug in iteration 3"
-- Personal names or dates: "John updated this on 2024-03-15"
-- One-off solutions: "Changed line 42 in user_service.py"
-- Project-specific file paths: "Modified /home/user/project/file.py"
-
-### Focus on WHAT & WHY, Not HOW (specifics)
-- **Good:** "Always validate API responses before processing to prevent null reference errors"
-- **Bad:** "Fixed the bug where response.data was null in the getUserProfile function"
-
-### Keep Content Concise
-- Use bullet points and clear structure
-- Remove redundant explanations
-- Focus on actionable information
-- Break long content into multiple artifacts
-
-## Common Mistakes
-
-❌ "I'll check if needed" → Always check first
-❌ "Add at end" → Capture immediately
-❌ "Too simple for context" → All tasks use workflow
-❌ "Just look, don't load" → Must load artifacts
-❌ "I know better" → Artifacts contain validated learnings
-❌ "Task finished" without reflection → Must call `reflect_and_update_artifacts()` first
-❌ "Fixed mistakes" without updating artifacts → Create/update artifacts for each learning
-❌ Storing iteration details → Store generalizable patterns only
-❌ Non-English content → All content must be in English
-❌ Exceeding length limits → Keep summaries <200, content <4000 chars
+## 🚫 Do Not
+- Do not skip discovery or work without artifacts.
+- Do not say "finished" without calling `reflect_and_update_artifacts(...)`.
+- Do not store PII or task-instance details in artifacts.
 
 ---

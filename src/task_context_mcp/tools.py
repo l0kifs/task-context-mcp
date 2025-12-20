@@ -18,9 +18,13 @@ DEFAULT_ARTIFACT_TYPES = [
 @mcp.tool
 def get_active_task_contexts() -> str:
     """
-    ⚠️ MANDATORY FIRST STEP: ALWAYS call BEFORE ANY task. ⚠️
-    Returns active task contexts (reusable task TYPES, not instances).
-    Required to check for existing practices/rules/learnings.
+    Start here for every task.
+
+    Lists active task contexts (reusable task TYPES, not task instances).
+
+    Next steps:
+    - If a context matches: call get_artifacts_for_task_context(task_context_id)
+    - If no context matches: call create_task_context(summary, description)
     """
     try:
         task_contexts = db_manager.get_active_task_contexts()
@@ -28,9 +32,9 @@ def get_active_task_contexts() -> str:
         if not task_contexts:
             return """No active task contexts found.
 
-⚠️ NEXT REQUIRED STEP: Since no existing task context matches your work,
-you MUST call create_task_context() to create a new task type before proceeding.
-Do NOT start task work without creating a context and adding initial artifacts."""
+Next step:
+- Call create_task_context(summary, description) to create a new task type.
+- Then call create_artifact(...) to add initial rules/practices/prompts before doing work."""
 
         result = "Active Task Contexts:\n\n"
         for tc in task_contexts:
@@ -41,11 +45,9 @@ Do NOT start task work without creating a context and adding initial artifacts."
             result += f"Updated: {tc.updated_date}\n"
             result += "---\n"
 
-        result += (
-            "\n⚠️ NEXT REQUIRED STEP: If any context above matches your task type,\n"
-        )
-        result += "call get_artifacts_for_task_context(task_context_id) to load ALL artifacts\n"
-        result += "BEFORE starting work. If no match found, create a new context with create_task_context()."
+        result += "\nNext step:\n"
+        result += "- If a context matches: call get_artifacts_for_task_context(task_context_id)\n"
+        result += "- If none match: call create_task_context(summary, description)\n"
 
         return result
 
@@ -69,16 +71,16 @@ def create_task_context(
     ],
 ) -> str:
     """
-    ⚠️ REQUIRED when no match found. Create new task type (category, not instance).
-    Example: "CV analysis for Python dev" NOT "Analyze John's CV"
+    Create a new task context (task type) when no match exists.
 
-    CONTENT REQUIREMENTS:
-    - English only (Latin characters)
-    - Summary: max 200 characters
-    - Description: max 1000 characters
-    - Focus on the TASK TYPE, not specific instances
+    Use for categories (e.g., "CV analysis for Python dev"), not specific instances.
 
-    After creating: MUST call create_artifact() before starting work.
+    Constraints:
+    - English only
+    - summary <= 200 chars
+    - description <= 1000 chars
+
+    Next step: create initial guidance with create_artifact() before doing task work.
     """
     try:
         # Validation is handled by Pydantic models in the MCP layer
@@ -86,19 +88,15 @@ def create_task_context(
             summary=summary, description=description
         )
 
-        return f"""Task context created successfully:
+        return f"""Task context created:
 ID: {task_context.id}
 Summary: {task_context.summary}
 Description: {task_context.description}
 
-⚠️ NEXT REQUIRED STEP: Now call create_artifact() to add initial practices, rules,
-or prompts to this task context BEFORE starting any task work. Do not proceed without artifacts.
-
-⚠️ DURING TASK: You MUST autonomously manage artifacts:
-• Create artifacts immediately when discovering patterns/mistakes/learnings
-• Update artifacts when you find they're incomplete or incorrect
-• Archive artifacts when they prove wrong or outdated
-• Call reflect_and_update_artifacts() before finishing the task"""
+    Next steps:
+    - Call create_artifact(...) to add initial rules/practices/prompts before doing work.
+    - During work: create/update/archive artifacts as you learn.
+    - Before finishing: call reflect_and_update_artifacts(task_context_id, learnings)."""
 
     except Exception as e:
         return f"Error creating task context: {str(e)}"
@@ -118,8 +116,14 @@ def get_artifacts_for_task_context(
     ] = False,
 ) -> str:
     """
-    ⚠️ REQUIRED after find/create context. Load ALL artifacts BEFORE work.
-    Call multiple times: at start, before major phases, when referencing patterns.
+    Load artifacts for a task context.
+
+    Call this after you select or create a task context and before doing work.
+    Re-call when you start a new phase or need to confirm guidance.
+
+    Notes:
+    - Defaults to practice/rule/prompt (excludes result)
+    - Set include_archived=True only when you need historical context
     """
     try:
         # Convert string types to ArtifactType enums
@@ -144,9 +148,8 @@ def get_artifacts_for_task_context(
             status_msg = " (including archived)" if include_archived else ""
             return f"""No artifacts found for task context {task_context_id}{status_msg}.
 
-⚠️ ACTION REQUIRED: This task context has no artifacts yet.
-You MUST call create_artifact() to add initial practices, rules, or prompts
-before starting task work. Do not proceed without establishing guidelines."""
+Next step:
+- Call create_artifact(...) to add initial rules/practices/prompts before doing work."""
 
         result = f"Artifacts for task context {task_context_id}:\n\n"
         for artifact in artifacts:
@@ -155,21 +158,17 @@ before starting task work. Do not proceed without establishing guidelines."""
             result += f"Summary: {artifact.summary}\n"
             result += f"Content:\n{artifact.content}\n"
             result += f"Status: {artifact.status}\n"
-            if artifact.archived_at:
+            if artifact.archived_at is not None:
                 result += f"Archived At: {artifact.archived_at}\n"
                 result += f"Archive Reason: {artifact.archivation_reason}\n"
             result += f"Created: {artifact.created_at}\n"
             result += "---\n"
 
-        result += "\n✅ Artifacts loaded successfully. Now use these to guide your task execution.\n\n"
-        result += "⚠️ CRITICAL REMINDERS:\n"
-        result += "• Call create_artifact() IMMEDIATELY when discovering patterns/learnings/mistakes\n"
-        result += "• Call update_artifact() IMMEDIATELY when you find artifacts are incomplete/wrong\n"
-        result += "• Call archive_artifact() IMMEDIATELY when artifacts prove incorrect/outdated\n"
-        result += (
-            "• Call reflect_and_update_artifacts() BEFORE saying task is finished\n"
-        )
-        result += "• DO NOT wait for user to ask - manage artifacts autonomously!\n"
+        result += "\nNext steps:\n"
+        result += "- Use these artifacts to guide execution.\n"
+        result += "- If you learn something new: create_artifact(...) immediately.\n"
+        result += "- If guidance is wrong/incomplete: update_artifact(...) or archive_artifact(...).\n"
+        result += "- Before finishing: reflect_and_update_artifacts(task_context_id, learnings).\n"
 
         return result
 
@@ -198,21 +197,18 @@ def create_artifact(
     ],
 ) -> str:
     """
-    ⚠️ REQUIRED during task execution when discovering patterns/learnings/mistakes.
-    Call IMMEDIATELY (not at task end) when you:
-    - Discover a pattern or best practice
-    - Learn something new about the task type
-    - Find a mistake/correction that others should know about
-    - Identify a rule or constraint
+    Create a new artifact to capture reusable guidance.
 
-    CONTENT REQUIREMENTS:
-    - English only (Latin characters)
-    - Summary: max 200 characters
-    - Content: max 4000 characters (≈500-700 words)
-    - Store GENERALIZABLE patterns, not specific iteration details
-    - Focus on WHAT and WHY, not specific names/dates/iteration numbers
+    Create immediately when you discover a pattern, constraint, mistake, or useful template.
+    If similar guidance might already exist, call search_artifacts() first; prefer update_artifact() over near-duplicates.
 
-    Types: practice (guidelines), rule (constraints), prompt (templates), result (learnings).
+    Constraints:
+    - English only
+    - summary <= 200 chars
+    - content <= 4000 chars
+    - No PII, no task-instance specifics; focus on WHAT/WHY
+
+    Types: practice (guidelines), rule (constraints), prompt (templates), result (generalizable learnings).
     """
     try:
         # Validate artifact_type
@@ -228,13 +224,14 @@ def create_artifact(
             content=content,
         )
 
-        return f"""Artifact created successfully:
+        return f"""Artifact created:
 ID: {artifact.id}
 Type: {artifact.artifact_type}
 Summary: {artifact.summary}
 
-✅ Artifact saved. Continue creating artifacts as you discover more patterns/learnings.
-⚠️ Remember: Before finishing the task, call reflect_and_update_artifacts() to ensure all learnings are captured."""
+    Next steps:
+    - Continue work using this guidance.
+    - Before finishing: call reflect_and_update_artifacts(task_context_id, learnings)."""
 
     except Exception as e:
         return f"Error creating artifact: {str(e)}"
@@ -255,20 +252,18 @@ def update_artifact(
     ] = None,
 ) -> str:
     """
-    ⚠️ REQUIRED when you discover an artifact needs improvement.
-    Update artifact immediately when:
-    - You find an existing practice/rule is incorrect or incomplete
-    - User feedback indicates an artifact needs refinement
-    - You learn something that improves an existing artifact
+    Update an artifact when existing guidance is incomplete, wrong, or needs refinement.
 
-    CONTENT REQUIREMENTS:
-    - English only (Latin characters)
-    - Summary: max 200 characters
-    - Content: max 4000 characters (≈500-700 words)
-    - Store GENERALIZABLE patterns, not specific iteration details
-    - Focus on WHAT and WHY, not specific names/dates/iteration numbers
+    Use immediately when you learn something better or user feedback indicates a correction.
+    Prefer updating over creating duplicates.
 
-    Use during work when refining understanding. Provide summary and/or content.
+    Constraints:
+    - English only
+    - summary <= 200 chars
+    - content <= 4000 chars
+    - No PII, no task-instance specifics; focus on WHAT/WHY
+
+    Provide summary and/or content.
     """
     try:
         if summary is None and content is None:
@@ -279,12 +274,13 @@ def update_artifact(
         )
 
         if artifact:
-            return f"""Artifact updated successfully:
+            return f"""Artifact updated:
 ID: {artifact.id}
 Summary: {artifact.summary}
 
-✅ Update applied. Continue monitoring and updating artifacts as you discover more learnings.
-⚠️ Remember: Before finishing the task, call reflect_and_update_artifacts() to review all changes."""
+Next steps:
+- Continue work with the updated guidance.
+- Before finishing: reflect_and_update_artifacts(task_context_id, learnings)."""
         else:
             return f"Artifact not found: {artifact_id}"
 
@@ -301,23 +297,22 @@ def archive_artifact(
     ] = None,
 ) -> str:
     """
-    ⚠️ REQUIRED when you discover an artifact is incorrect/outdated/problematic.
-    Archive immediately when:
-    - An artifact proves to be incorrect or misleading
-    - A practice/rule is superseded by a better approach
-    - User feedback indicates an artifact should no longer be used
-    Best practice: Create replacement first, then archive old. Always provide reason.
+    Archive an artifact that is incorrect, misleading, or outdated.
+
+    Prefer creating a replacement first, then archive the old artifact.
+    Provide a reason when possible.
     """
     try:
         artifact = db_manager.archive_artifact(artifact_id=artifact_id, reason=reason)
 
         if artifact:
-            return f"""Artifact archived successfully:
+            return f"""Artifact archived:
 ID: {artifact.id}
 Reason: {artifact.archivation_reason}
 
-✅ Artifact archived. If this was due to discovering it's incorrect, ensure you've created a replacement.
-⚠️ Remember: Before finishing the task, call reflect_and_update_artifacts() to review all changes."""
+Next steps:
+- If you still need guidance for this case, create a replacement artifact.
+- Before finishing: reflect_and_update_artifacts(task_context_id, learnings)."""
         else:
             return f"Artifact not found: {artifact_id}"
 
@@ -333,7 +328,9 @@ def search_artifacts(
     ] = 10,
 ) -> str:
     """
-    FTS5 search across artifacts. Find similar learnings/practices before creating new.
+    Full-text search across artifacts.
+
+    Use this before creating new artifacts to avoid duplicates.
     Returns results ranked by relevance.
     """
     try:
@@ -374,15 +371,10 @@ def reflect_and_update_artifacts(
     ],
 ) -> str:
     """
-    ⚠️ MANDATORY after completing work or making corrections/mistakes.
-    Call when:
-    - Task is complete (before saying "finished")
-    - You discovered mistakes and corrected them
-    - You learned something important about the task type
-    - User provided feedback that improved your approach
+    Reflection checkpoint.
 
-    This tool helps you reflect on learnings and prompts you to update artifacts.
-    You MUST then call create_artifact/update_artifact/archive_artifact as needed.
+    Call before declaring a task complete, and after corrections or user feedback.
+    This returns the current artifacts and prompts you to create/update/archive as needed.
     """
     try:
         # Get current artifacts for this task context (excluding result type)
@@ -392,45 +384,28 @@ def reflect_and_update_artifacts(
             status=ArtifactStatus.ACTIVE,
         )
 
-        result = f"""📊 REFLECTION CHECKPOINT - Task Context: {task_context_id}
+        result = f"""Reflection checkpoint (task context: {task_context_id})
 
-Your Learnings:
+Learnings:
 {learnings}
 
-Current Active Artifacts ({len(artifacts)} total):
+Active artifacts ({len(artifacts)}):
 """
 
         if artifacts:
             for artifact in artifacts:
                 result += f"\n- [{artifact.artifact_type}] {artifact.summary} (ID: {artifact.id})"
         else:
-            result += "\n⚠️ NO ARTIFACTS EXIST YET!"
+            result += "\n- (none)"
 
         result += """
 
-⚠️⚠️⚠️ REQUIRED ACTIONS - DO NOT SKIP ⚠️⚠️⚠️
+Required actions:
+1) For new learnings: call create_artifact(...)
+2) For corrections: call update_artifact(...)
+3) For obsolete guidance: call archive_artifact(...)
 
-Based on your learnings above, you MUST NOW:
-
-1. ✅ CREATE new artifacts for NEW learnings/patterns/mistakes discovered
-   → Call create_artifact() for each new practice, rule, or learning
-   → Example: If you found imports issue, create a rule about checking imports
-
-2. ✅ UPDATE existing artifacts that need improvement
-   → Call update_artifact() if existing artifacts were incomplete or wrong
-   → Use artifact IDs listed above
-
-3. ✅ ARCHIVE artifacts that proved incorrect or outdated
-   → Call archive_artifact() with clear reason for each obsolete artifact
-   → Example: If a rule was wrong, archive it and create a corrected version
-
-❌ DO NOT:
-- Say "I'll update artifacts" without actually calling the tools
-- Skip artifact management because "task is simple"
-- Wait for user to ask you to update artifacts
-- Finish the task without managing artifacts
-
-⏭️ NEXT STEP: Call the appropriate artifact management tools NOW.
+Next step: call the appropriate artifact tool(s) now.
 """
 
         return result
